@@ -109,16 +109,7 @@ impl OrderBook {
         order_id
     }
 
-    fn handle_incoming_order_request (&mut self, mut new_order_request: OrderRequest) -> Option<Uuid> {
-        match new_order_request.order_type {
-            OrderType::Buy => {
-                self.handle_incoming_buy(new_order_request)
-            }
-            OrderType::Sell => {
-                self.handle_incoming_sell(new_order_request)
-            }
-        }
-    }
+
 
     fn remove_order_by_uuid(
         &mut self,
@@ -147,6 +138,17 @@ impl OrderBook {
             }
         }
         None
+    }
+    
+    fn handle_incoming_order_request (&mut self, new_order_request: OrderRequest) -> Option<Uuid> {
+        match new_order_request.order_type {
+            OrderType::Buy => {
+                self.handle_incoming_buy(new_order_request)
+            }
+            OrderType::Sell => {
+                self.handle_incoming_sell(new_order_request)
+            }
+        }
     }
     fn handle_incoming_sell(&mut self, mut sell_order: OrderRequest) -> Option<Uuid> {
         if sell_order.price <= self.current_high_buy_price {
@@ -269,7 +271,7 @@ impl OrderBook {
         let file = File::open(file_path)?;
         let mut rdr = csv::Reader::from_reader(file);
         for result in rdr.deserialize() {
-            let mut new_order_request: OrderRequest = result?;
+            let new_order_request: OrderRequest = result?;
             self.handle_incoming_order_request(new_order_request);
         }
         Ok(())
