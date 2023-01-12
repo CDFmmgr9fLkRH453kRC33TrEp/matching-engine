@@ -33,3 +33,9 @@ https://github.com/charles-cooper/itch-order-book
 https://www.chrisstucchio.com/blog/2012/hft_apology.html
 
 https://marabos.nl/atomics/basics.html
+
+https://markrbest.github.io/hft-and-rust/
+
+https://rustrepo.com/repo/uinb-galois
+
+https://github.com/yangfh2004/rust-limit-order-book
