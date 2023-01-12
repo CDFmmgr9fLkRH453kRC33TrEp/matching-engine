@@ -25,6 +25,7 @@ enum TickerSymbol {
 
 #[derive(Debug)]
 struct OrderBook {
+    /// Struct representing a double sided order book for a single product.
     symbol: TickerSymbol,
     // buy side in increasing price order
     buy_side_limit_levels: Vec<LimitLevel>,
@@ -35,6 +36,7 @@ struct OrderBook {
 }
 #[derive(Debug)]
 struct LimitLevel {
+    /// Struct representing one price level in the orderbook, containing a vector of Orders at this price
     price: Price,
     orders: Vec<Order>,
 }
@@ -42,6 +44,7 @@ struct LimitLevel {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "PascalCase")]
 struct OrderRequest {    
+    /// Struct representing an incoming request which has not yet been added to the orderbook
     amount: i32,
     price: Price,
     order_type: OrderType,
@@ -51,6 +54,7 @@ struct OrderRequest {
 
 #[derive(Debug)]
 struct Order {
+    /// Struct representing an existing order in the order book
     order_id: Uuid,
     trader_id: i32,
     symbol: TickerSymbol,
@@ -64,7 +68,8 @@ struct Trader {
 }
 
 #[derive(Debug)]
-struct TradeResult {
+struct Fill {
+    /// Struct representing an order fill event, used to update credit limits, communicate orderbook status etc.
     sell_trader: Trader,
     buy_trader: Trader,
     amount: i32,
@@ -73,7 +78,7 @@ struct TradeResult {
     trade_time: u8,
 }
 impl OrderBook {
-    fn add_order_to_book(&mut self, new_order_request: &OrderRequest) -> Uuid {
+    fn add_order_to_book(&mut self, new_order_request: OrderRequest) -> Uuid {
         let order_id = Uuid::new_v4();
         let new_order = Order {
             order_id: order_id,
@@ -104,13 +109,13 @@ impl OrderBook {
         order_id
     }
 
-    fn handle_incoming_order_request (&mut self, new_order_request: &mut OrderRequest) -> Option<Uuid> {
+    fn handle_incoming_order_request (&mut self, mut new_order_request: OrderRequest) -> Option<Uuid> {
         match new_order_request.order_type {
             OrderType::Buy => {
                 self.handle_incoming_buy(new_order_request)
             }
             OrderType::Sell => {
-                self.handle_incoming_sell( new_order_request)
+                self.handle_incoming_sell(new_order_request)
             }
         }
     }
@@ -143,7 +148,7 @@ impl OrderBook {
         }
         None
     }
-    fn handle_incoming_sell(&mut self, sell_order: &mut OrderRequest) -> Option<Uuid> {
+    fn handle_incoming_sell(&mut self, mut sell_order: OrderRequest) -> Option<Uuid> {
         if sell_order.price <= self.current_high_buy_price {
             println!("Cross, beginning matching");
             let mut current_price_level = self.current_high_buy_price;
@@ -189,7 +194,7 @@ impl OrderBook {
             return None;
         }
     }
-    fn handle_incoming_buy(&mut self, buy_order: &mut OrderRequest) -> Option<Uuid> {
+    fn handle_incoming_buy(&mut self, mut buy_order: OrderRequest) -> Option<Uuid> {
         if buy_order.price >= self.current_low_sell_price {
             println!("Cross, beginning matching");
             let mut current_price_level = self.current_low_sell_price;
@@ -265,7 +270,7 @@ impl OrderBook {
         let mut rdr = csv::Reader::from_reader(file);
         for result in rdr.deserialize() {
             let mut new_order_request: OrderRequest = result?;
-            self.handle_incoming_order_request(&mut new_order_request);
+            self.handle_incoming_order_request(new_order_request);
         }
         Ok(())
     }
