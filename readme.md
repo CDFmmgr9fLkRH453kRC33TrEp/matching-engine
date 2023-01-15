@@ -4,14 +4,14 @@ Simplistic exchange simulator with in memory order book and multi asset credit l
 ## CAP CGMD idea dump
 Price of each asset is tied to a real world value with sufficient movement and noise to be interesting, e.g. the temperature as measured in Alma's lap. This price would then be enforced by guaranteeing some amount of trading at a lagged price (i.e. actually have a temperature sensor) from a dummy account. 
 
-Other asset ideas:
+Other asset ideas (told e.g. 1 month before event):
 * wind speed somewhere on campus
 * number of internet connections in butler
 * a random number generator each second
 * average price of all other assets and the end of competition (no price enforcement)
 * behavior of some insects moving across a scale
 
-Also makes modelling a bit more interesting/open-ended
+Also makes modelling a bit more interesting/open-ended, as people can be creative leading up to event 
 
 ## Limit Order Book (LOB)
 Main memory structure, consisting of two half books (buy and sell), storing the current status of outstanding orders. 
