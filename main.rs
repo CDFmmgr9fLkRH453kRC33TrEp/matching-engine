@@ -1,7 +1,7 @@
 use std::cmp;
 use uuid::Uuid;
 type Price = usize;
-
+type TraderID = u8;
 // for loading csv test files
 use std::env;
 use std::error::Error;
@@ -48,7 +48,7 @@ struct OrderRequest {
     amount: i32,
     price: Price,
     order_type: OrderType,
-    trader_id: i32,
+    trader_id: TraderID,
     symbol: TickerSymbol,
 }
 
@@ -56,7 +56,7 @@ struct OrderRequest {
 struct Order {
     /// Struct representing an existing order in the order book
     order_id: Uuid,
-    trader_id: i32,
+    trader_id: TraderID,
     symbol: TickerSymbol,
     amount: i32,
     price: Price,
@@ -64,14 +64,14 @@ struct Order {
 }
 #[derive(Debug, Copy, Clone)]
 struct Trader {
-    id: [char; 4],
+    id: TraderID,
 }
 
 #[derive(Debug)]
 struct Fill {
     /// Struct representing an order fill event, used to update credit limits, communicate orderbook status etc.
-    sell_trader: Trader,
-    buy_trader: Trader,
+    sell_trader_id: TraderID,
+    buy_trader_id: TraderID,
     amount: i32,
     price: Price,
     symbol: TickerSymbol,
@@ -152,22 +152,31 @@ impl OrderBook {
     }
     fn handle_incoming_sell(&mut self, mut sell_order: OrderRequest) -> Option<Uuid> {
         if sell_order.price <= self.current_high_buy_price {
-            println!("Cross, beginning matching");
             let mut current_price_level = self.current_high_buy_price;
             while (sell_order.amount > 0) & (current_price_level > sell_order.price) {
                 let mut order_index = 0;
                 while order_index < self.buy_side_limit_levels[current_price_level].orders.len() {
-                    let order_considering =
-                        &mut self.buy_side_limit_levels[current_price_level].orders[order_index];
-                    let amount_to_be_traded = cmp::min(sell_order.amount, order_considering.amount);
-                    println!(
-                        "Match found, trading {:?} lots of {:?} @ ${:?}",
-                        amount_to_be_traded, sell_order.symbol, sell_order.price
-                    );
+                    
+                    // let order_considering =
+                    //     &self.buy_side_limit_levels[current_price_level].orders[order_index];
+
+                    let trade_price =    self.buy_side_limit_levels[current_price_level].orders[order_index].price;
+                    let buy_trader_id =    self.buy_side_limit_levels[current_price_level].orders[order_index].trader_id; 
+                    
+                    let amount_to_be_traded = cmp::min(sell_order.amount, self.buy_side_limit_levels[current_price_level].orders[order_index].amount);
+                   
+                    self.handle_fill_event(Fill{
+                        sell_trader_id: sell_order.trader_id, 
+                        buy_trader_id: buy_trader_id,
+                        symbol: self.symbol,
+                        amount: amount_to_be_traded,
+                        price: trade_price,
+                        trade_time: 1,
+                    });
                     // TODO: create "sell" function that can handle calls to allocate credit etc.
                     sell_order.amount -= amount_to_be_traded;
-                    order_considering.amount -= amount_to_be_traded;
-                    if order_considering.amount == 0 {
+                    self.buy_side_limit_levels[current_price_level].orders[order_index].amount -= amount_to_be_traded;
+                    if self.buy_side_limit_levels[current_price_level].orders[order_index].amount == 0 {
                         self.sell_side_limit_levels[current_price_level]
                             .orders
                             .remove(order_index);
@@ -198,7 +207,6 @@ impl OrderBook {
     }
     fn handle_incoming_buy(&mut self, mut buy_order: OrderRequest) -> Option<Uuid> {
         if buy_order.price >= self.current_low_sell_price {
-            println!("Cross, beginning matching");
             let mut current_price_level = self.current_low_sell_price;
             while (buy_order.amount > 0) & (current_price_level < buy_order.price) {
                 let mut order_index = 0;
@@ -207,17 +215,24 @@ impl OrderBook {
                         .orders
                         .len()
                 {
-                    let order_considering =
-                        &mut self.sell_side_limit_levels[current_price_level].orders[order_index];
-                    let amount_to_be_traded = cmp::min(buy_order.amount, order_considering.amount);
-                    println!(
-                        "Match found, trading {:?} lots of {:?} @ ${:?}",
-                        amount_to_be_traded, buy_order.symbol, buy_order.price
-                    );
+                    let trade_price = self.sell_side_limit_levels[current_price_level].orders[order_index].price;
+                    let buy_trader_id = self.sell_side_limit_levels[current_price_level].orders[order_index].trader_id; 
+                    
+                    let amount_to_be_traded = cmp::min(buy_order.amount, self.sell_side_limit_levels[current_price_level].orders[order_index].amount);
+                   
+                    self.handle_fill_event(Fill{
+                        buy_trader_id: buy_order.trader_id, 
+                        sell_trader_id: buy_trader_id,
+                        symbol: self.symbol,
+                        amount: amount_to_be_traded,
+                        price: trade_price,
+                        trade_time: 1,
+                    });
+                    
                     // TODO: create "sell" function that can handle calls to allocate credit etc.
                     buy_order.amount -= amount_to_be_traded;
-                    order_considering.amount -= amount_to_be_traded;
-                    if order_considering.amount == 0 {
+                    self.sell_side_limit_levels[current_price_level].orders[order_index].amount -= amount_to_be_traded;
+                    if self.sell_side_limit_levels[current_price_level].orders[order_index].amount == 0 {
                         self.sell_side_limit_levels[current_price_level]
                             .orders
                             .remove(order_index);
@@ -245,25 +260,35 @@ impl OrderBook {
         } else {
             return None;
         }
-        // println!(
-        //     "{:?} buys {:?} shares of {:?} from {:?} at {:?}",
-        //     buy_order.trader, buy_order.amount, symbol, sell_trader, price
-        // );
     }
 
-    fn vizualize_book_state(&self) -> Vec<i32>{
-        let mut book_ouput : Vec<i32> = vec![0; self.buy_side_limit_levels.len()];
+    fn handle_fill_event(&self, fill_event: Fill){
+        println!(
+            "{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
+            fill_event.sell_trader_id, fill_event.buy_trader_id, fill_event.amount, fill_event.symbol, fill_event.price
+        );
+    }
+
+    fn print_book_state(&self) {
         for price_level_index in 0 .. self.buy_side_limit_levels.len() {
-            let mut outstanding_orders: i32 = 0;
+            let mut outstanding_sell_orders: i32 = 0;
+            let mut outstanding_buy_orders: i32 = 0;
             for order in self.sell_side_limit_levels[price_level_index].orders.iter(){
-                outstanding_orders += order.amount;
-            }
+                outstanding_sell_orders += order.amount;
+            };
             for order in self.buy_side_limit_levels[price_level_index].orders.iter(){
-                outstanding_orders += order.amount;
-            }
-            book_ouput[price_level_index] = outstanding_orders;
+                outstanding_buy_orders += order.amount;
+            };
+            let mut string_out = String::from("");
+            for _ in 0..outstanding_sell_orders {
+                string_out = string_out + "S"
+            };
+            for _ in 0..outstanding_buy_orders {
+                string_out = string_out + "B"
+            };
+            println!("${}: {}", self.buy_side_limit_levels[price_level_index].price, string_out);
+            // book_ouput[price_level_index] = outstanding_orders;
         };
-        book_ouput
     }
 
     fn load_csv_test_data(&mut self, file_path: OsString) -> Result<(), Box<dyn Error>> {
@@ -299,11 +324,11 @@ fn quickstart_order_book (symbol: TickerSymbol, min_price: Price, max_price:Pric
 }
 
 fn main() {
-    let mut order_book = quickstart_order_book(TickerSymbol::AAPL, 0, 10);
+    let mut order_book = quickstart_order_book(TickerSymbol::AAPL, 0, 11);
     if let Err(err) = order_book.load_csv_test_data("test_orders.csv".into()) {
         println!("{}", err);
         process::exit(1);
     }
-    println!("{:?}", order_book.vizualize_book_state());
+    order_book.print_book_state();
     // println!("{:#?}", order_book);
 }
