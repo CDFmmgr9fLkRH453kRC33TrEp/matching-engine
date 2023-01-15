@@ -6,6 +6,14 @@ Simplistic exchange simulator with in memory order book and multi asset credit l
 ## Matching Engine
 
 ## Exchange API
+One connection/thread per trader, handles listening, reporting, and interfacing with matching engine. 
+Handled via tokio and hyper
+On request:
+* Checks non malformed trade
+* Checks legality of trade (i.e. respects credit limits, ratelimiting, etc.)
+* Makes a call to handle incoming request of the appropriate orderbook struct. 
+* This is blocking, and other connection handlers must wait for orderbook to be unlocked in order to pass a request
+* Could implement some kind of queue here to allow temporary burst traffic, but I think the simple version should be enough
 
 ## Enforcing Credit Limits
 
