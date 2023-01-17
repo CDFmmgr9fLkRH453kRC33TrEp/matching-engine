@@ -1,3 +1,4 @@
+use std::fmt;
 use std::cmp;
 use uuid::Uuid;
 type Price = usize;
@@ -8,25 +9,37 @@ use std::error::Error;
 use std::ffi::OsString;
 use std::fs::File;
 use std::process::{self};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize, Serializer};
+// use serde_json::Serialize;
 
 type Record = (String, String, Option<u64>, f64, f64);
 
 
-#[derive(Debug, Clone, Copy, Deserialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum OrderType {
     Buy,
     Sell,
 }
-#[derive(Debug, Copy, Clone, Deserialize)]
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 pub enum TickerSymbol {
     AAPL,
 }
 
+
+// for testing, remove later
+impl fmt::Display for TickerSymbol {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            TickerSymbol::AAPL => write!(f, "AAPL"),            
+        }
+    }
+}
+
+
 #[derive(Debug)]
 pub struct OrderBook {
     /// Struct representing a double sided order book for a single product.
-    symbol: TickerSymbol,
+    pub symbol: TickerSymbol,
     // buy side in increasing price order
     buy_side_limit_levels: Vec<LimitLevel>,
     // sell side in increasing price order
@@ -41,7 +54,7 @@ struct LimitLevel {
     orders: Vec<Order>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct OrderRequest {    
     /// Struct representing an incoming request which has not yet been added to the orderbook
@@ -321,11 +334,20 @@ pub fn quickstart_order_book (symbol: TickerSymbol, min_price: Price, max_price:
 }
 
 fn main() {
-    let mut order_book = quickstart_order_book(TickerSymbol::AAPL, 0, 11);
-    if let Err(err) = order_book.load_csv_test_data("test_orders.csv".into()) {
-        println!("{}", err);
-        process::exit(1);
-    }
-    order_book.print_book_state();
+    // let mut order_book = quickstart_order_book(TickerSymbol::AAPL, 0, 11);
+    // if let Err(err) = order_book.load_csv_test_data("test_orders.csv".into()) {
+    //     println!("{}", err);
+    //     process::exit(1);
+    // }
+    // order_book.print_book_state();
     // println!("{:#?}", order_book);
+    let o_req = OrderRequest{
+        amount: 10,
+        price: 10,
+        order_type: OrderType::Buy,
+        trader_id: 1,
+        symbol: TickerSymbol::AAPL,
+    };
+    println!("Hello");
+    println!("{:?}", serde_json::to_string(&o_req));
 }
