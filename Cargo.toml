@@ -11,7 +11,7 @@ csv = "1.1"
 strum = "0.2"
 strum_macros = "0.2"
 plotters = "0.3"
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", features = ["derive"]}
 # server dependencies
 actix-web = "4"
 serde_json = {version = "1.0"}
@@ -29,6 +29,7 @@ features = [
     "v4",                # Lets you generate random UUIDs
     "fast-rng",          # Use a faster (but still sufficiently random) RNG
     "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
+    "serde"
 ]
 [[bin]]
 name = "main"

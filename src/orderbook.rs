@@ -1,6 +1,8 @@
 use std::fmt;
+use std::fmt::Display;
 use std::cmp;
 use uuid::Uuid;
+type OrderID = uuid::Uuid;
 type Price = usize;
 type TraderID = u8;
 // for loading csv test files
@@ -71,7 +73,7 @@ pub struct OrderRequest {
 }
 
 #[derive(Debug)]
-struct Order {
+pub struct Order {
     /// Struct representing an existing order in the order book
     order_id: Uuid,
     trader_id: TraderID,
@@ -84,6 +86,16 @@ struct Order {
 struct Trader {
     id: TraderID,
 }
+
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct CancelRequest {
+    order_id: OrderID,
+    price: Price,
+    symbol: TickerSymbol,
+    side: OrderType
+}
+
 
 #[derive(Debug)]
 struct Fill {
@@ -130,28 +142,26 @@ impl OrderBook {
 
 
 
-    fn remove_order_by_uuid(
+    pub fn handle_incoming_cancel_request(
         &mut self,
-        order_id: Uuid,
-        price: usize,
-        side: OrderType,
+        cancel_request: CancelRequest,
     ) -> Option<Order> {
         debug!("remove_order_by_uuid trigger");
-        match side {
+        match cancel_request.side {
             OrderType::Buy => {
                 let mut index = 0;
-                while index < self.buy_side_limit_levels[price].orders.len() {
-                    if self.buy_side_limit_levels[price].orders[index].order_id == order_id {
-                        return Some(self.buy_side_limit_levels[price].orders.remove(index));
+                while index < self.buy_side_limit_levels[cancel_request.price].orders.len() {
+                    if self.buy_side_limit_levels[cancel_request.price].orders[index].order_id == cancel_request.order_id {
+                        return Some(self.buy_side_limit_levels[cancel_request.price].orders.remove(index));
                     }
                     index += 1;
                 }
             }
             OrderType::Sell => {
                 let mut index = 0;
-                while index < self.sell_side_limit_levels[price].orders.len() {
-                    if self.sell_side_limit_levels[price].orders[index].order_id == order_id {
-                        return Some(self.sell_side_limit_levels[price].orders.remove(index));
+                while index < self.sell_side_limit_levels[cancel_request.price].orders.len() {
+                    if self.sell_side_limit_levels[cancel_request.price].orders[index].order_id == cancel_request.order_id {
+                        return Some(self.sell_side_limit_levels[cancel_request.price].orders.remove(index));
                     }
                     index += 1;
                 }
@@ -247,8 +257,8 @@ impl OrderBook {
                         .orders
                         .len()) & (buy_order.amount > 0)
                 {
-                    println!("remain to fill {:?}", buy_order.amount);
-                    println!("{:?}",self.sell_side_limit_levels[current_price_level]
+                    debug!("remain to fill {:?}", buy_order.amount);
+                    debug!("{:?}",self.sell_side_limit_levels[current_price_level]
                     .orders);
                     let trade_price = self.sell_side_limit_levels[current_price_level].orders[0].price;
                     let buy_trader_id = self.sell_side_limit_levels[current_price_level].orders[0].trader_id; 
@@ -328,7 +338,7 @@ impl OrderBook {
     }
 
     pub fn load_csv_test_data(&mut self, file_path: OsString) -> Result<(), Box<dyn Error>> {
-        println!("Loading order data from {:?}", file_path);
+        info!("Loading order data from {:?}", file_path);
         let file = File::open(file_path)?;
         let mut rdr = csv::Reader::from_reader(file);
         for result in rdr.deserialize() {

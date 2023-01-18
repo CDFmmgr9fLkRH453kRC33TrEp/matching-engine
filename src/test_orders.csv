@@ -1,5 +1,3 @@
 OrderType,Amount,Price,Symbol,TraderId
-Buy,10,3,AAPL,1
-Sell,10,4,AAPL,2
-Buy,5,5,AAPL,3
-Sell,2,2,AAPL,4
+Sell,2,7,AAPL,1
+Buy,2,7,AAPL,1
