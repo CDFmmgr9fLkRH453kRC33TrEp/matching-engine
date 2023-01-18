@@ -1,5 +1,8 @@
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use std::sync::Mutex;
+#[macro_use] extern crate log;
+extern crate pretty_env_logger;
+use log::{debug, trace, warn, info, error};
 
 struct OrderbookState {
     orderbook : Mutex<orderbook::OrderBook>,
@@ -15,19 +18,23 @@ async fn hello(data: web::Data<OrderbookState>) -> String {
 async fn add_order(order_request: web::Json<orderbook::OrderRequest>, data: web::Data<OrderbookState>) -> String {
     // println!("{:?}");
     let mut orderbook = data.orderbook.lock().unwrap();
-    orderbook.handle_incoming_order_request(order_request.into_inner());
+    let order_id = orderbook.handle_incoming_order_request(order_request.into_inner());
     orderbook.print_book_state();
-    let s = orderbook.symbol.to_string();
-    s
+    match order_id {
+        Some(inner) => return inner.hyphenated().to_string(),
+        None => String::from("Filled"),
+    }
 }
 
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    pretty_env_logger::init();
+    // to do: add multiple orderbook routing etc. 
     let orderbook = web::Data::new(OrderbookState {
         orderbook: Mutex::new(orderbook::quickstart_order_book(orderbook::TickerSymbol::AAPL, 0, 11)),
     });
-
+    debug!("Debug Test");
     HttpServer::new(move || {
         App::new()
             .app_data(orderbook.clone()) // <- register the created data

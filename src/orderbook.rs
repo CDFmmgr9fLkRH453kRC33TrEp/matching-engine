@@ -9,9 +9,14 @@ use std::error::Error;
 use std::ffi::OsString;
 use std::fs::File;
 use std::process::{self};
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 // use serde_json::Serialize;
 
+// Logging
+extern crate pretty_env_logger;
+use log::{debug, trace, warn, info, error};
+
+// Importing csv
 type Record = (String, String, Option<u64>, f64, f64);
 
 
@@ -92,6 +97,7 @@ struct Fill {
 }
 impl OrderBook {
     fn add_order_to_book(&mut self, new_order_request: OrderRequest) -> Uuid {
+        debug!("add_order_to_book trigger");
         let order_id = Uuid::new_v4();
         let new_order = Order {
             order_id: order_id,
@@ -102,7 +108,7 @@ impl OrderBook {
             order_type: new_order_request.order_type,
         };
         match new_order.order_type {
-            OrderType::Buy => {
+            OrderType::Buy => {               
                 if self.current_high_buy_price < new_order.price {
                     self.current_high_buy_price = new_order.price;
                 };
@@ -130,6 +136,7 @@ impl OrderBook {
         price: usize,
         side: OrderType,
     ) -> Option<Order> {
+        debug!("remove_order_by_uuid trigger");
         match side {
             OrderType::Buy => {
                 let mut index = 0;
@@ -164,16 +171,24 @@ impl OrderBook {
         }
     }
     fn handle_incoming_sell(&mut self, mut sell_order: OrderRequest) -> Option<Uuid> {
+        // println!("Incoming sell, current high buy {:?}", self.current_high_buy_price);
         if sell_order.price <= self.current_high_buy_price {
+            // println!("Cross");
+            // println!("amount to be filled remaining: {:?}", sell_order.amount);
             let mut current_price_level = self.current_high_buy_price;
-            while (sell_order.amount > 0) & (current_price_level > sell_order.price) {
-                let mut order_index = 0;
-                while order_index < self.buy_side_limit_levels[current_price_level].orders.len() {
+            while (sell_order.amount > 0) & (current_price_level >= sell_order.price) {
+                // println!("amount to be filled remaining: {:?}", sell_order.amount);
+                // println!("current price level: {:?}", self.buy_side_limit_levels
+                // [current_price_level].price);
+                // self.print_book_state();
+                // println!("current price level orders: {:?}", self.buy_side_limit_levels[current_price_level].orders);
+                // let mut order_index = 0;
+                while (self.buy_side_limit_levels[current_price_level].orders.len() > 0) & (sell_order.amount > 0){
 
-                    let trade_price =    self.buy_side_limit_levels[current_price_level].orders[order_index].price;
-                    let buy_trader_id =    self.buy_side_limit_levels[current_price_level].orders[order_index].trader_id; 
+                    let trade_price =    self.buy_side_limit_levels[current_price_level].orders[0].price;
+                    let buy_trader_id =    self.buy_side_limit_levels[current_price_level].orders[0].trader_id; 
                     
-                    let amount_to_be_traded = cmp::min(sell_order.amount, self.buy_side_limit_levels[current_price_level].orders[order_index].amount);
+                    let amount_to_be_traded = cmp::min(sell_order.amount, self.buy_side_limit_levels[current_price_level].orders[0].amount);
                    
                     self.handle_fill_event(Fill{
                         sell_trader_id: sell_order.trader_id, 
@@ -185,17 +200,19 @@ impl OrderBook {
                     });
                     // TODO: create "sell" function that can handle calls to allocate credit etc.
                     sell_order.amount -= amount_to_be_traded;
-                    self.buy_side_limit_levels[current_price_level].orders[order_index].amount -= amount_to_be_traded;
-                    if self.buy_side_limit_levels[current_price_level].orders[order_index].amount == 0 {
-                        self.sell_side_limit_levels[current_price_level]
+                    self.buy_side_limit_levels[current_price_level].orders[0].amount -= amount_to_be_traded;
+                    debug!("orders: {:?}", self.sell_side_limit_levels[current_price_level].orders);
+                    debug!("limit level: {:?}", current_price_level);
+                    if self.buy_side_limit_levels[current_price_level].orders[0].amount == 0 {
+                        self.buy_side_limit_levels[current_price_level]
                             .orders
-                            .remove(order_index);
+                            .remove(0);
                     }
-                    order_index += 1;
+                    // order_index += 1;
                 }
-                current_price_level += 1;
+                current_price_level -= 1;
             }
-            while current_price_level < self.buy_side_limit_levels.len() {
+            while current_price_level > 0 {
                 if self.buy_side_limit_levels[current_price_level]
                     .orders
                     .len()
@@ -204,7 +221,7 @@ impl OrderBook {
                     self.current_high_buy_price = current_price_level;
                     break;
                 }
-                current_price_level += 1;
+                current_price_level -= 1;
             }
             self.current_high_buy_price = current_price_level;
         }
@@ -216,19 +233,23 @@ impl OrderBook {
         }
     }
     fn handle_incoming_buy(&mut self, mut buy_order: OrderRequest) -> Option<Uuid> {
+        // println!("Incoming Buy, current low sell {:?}", self.current_low_sell_price);
         if buy_order.price >= self.current_low_sell_price {
             let mut current_price_level = self.current_low_sell_price;
             while (buy_order.amount > 0) & (current_price_level < buy_order.price) {
-                let mut order_index = 0;
-                while order_index
+                // let mut order_index = 0;
+                while (0
                     < self.sell_side_limit_levels[current_price_level]
                         .orders
-                        .len()
+                        .len()) & (buy_order.amount > 0)
                 {
-                    let trade_price = self.sell_side_limit_levels[current_price_level].orders[order_index].price;
-                    let buy_trader_id = self.sell_side_limit_levels[current_price_level].orders[order_index].trader_id; 
+                    println!("remain to fill {:?}", buy_order.amount);
+                    println!("{:?}",self.sell_side_limit_levels[current_price_level]
+                    .orders);
+                    let trade_price = self.sell_side_limit_levels[current_price_level].orders[0].price;
+                    let buy_trader_id = self.sell_side_limit_levels[current_price_level].orders[0].trader_id; 
                     
-                    let amount_to_be_traded = cmp::min(buy_order.amount, self.sell_side_limit_levels[current_price_level].orders[order_index].amount);
+                    let amount_to_be_traded = cmp::min(buy_order.amount, self.sell_side_limit_levels[current_price_level].orders[0].amount);
                    
                     self.handle_fill_event(Fill{
                         buy_trader_id: buy_order.trader_id, 
@@ -241,13 +262,13 @@ impl OrderBook {
                     
                     // TODO: create "sell" function that can handle calls to allocate credit etc.
                     buy_order.amount -= amount_to_be_traded;
-                    self.sell_side_limit_levels[current_price_level].orders[order_index].amount -= amount_to_be_traded;
-                    if self.sell_side_limit_levels[current_price_level].orders[order_index].amount == 0 {
+                    self.sell_side_limit_levels[current_price_level].orders[0].amount -= amount_to_be_traded;
+                    if self.sell_side_limit_levels[current_price_level].orders[0].amount == 0 {
                         self.sell_side_limit_levels[current_price_level]
                             .orders
-                            .remove(order_index);
+                            .remove(0);
                     }
-                    order_index += 1;
+                    // order_index += 1;
                 }
                 current_price_level += 1;
             }
@@ -272,8 +293,8 @@ impl OrderBook {
         }
     }
 
-    fn handle_fill_event(&self, fill_event: Fill){
-        println!(
+    fn handle_fill_event(&self, fill_event: Fill){        
+        debug!(
             "{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
             fill_event.sell_trader_id, fill_event.buy_trader_id, fill_event.amount, fill_event.symbol, fill_event.price
         );
@@ -334,20 +355,22 @@ pub fn quickstart_order_book (symbol: TickerSymbol, min_price: Price, max_price:
 }
 
 fn main() {
-    // let mut order_book = quickstart_order_book(TickerSymbol::AAPL, 0, 11);
-    // if let Err(err) = order_book.load_csv_test_data("test_orders.csv".into()) {
-    //     println!("{}", err);
-    //     process::exit(1);
-    // }
-    // order_book.print_book_state();
+    let mut order_book = quickstart_order_book(TickerSymbol::AAPL, 0, 11);
+    if let Err(err) = order_book.load_csv_test_data("src/test_orders.csv".into()) {
+        println!("{}", err);
+        process::exit(1);
+    }
+    order_book.print_book_state();
     // println!("{:#?}", order_book);
-    let o_req = OrderRequest{
-        amount: 10,
-        price: 10,
-        order_type: OrderType::Buy,
-        trader_id: 1,
-        symbol: TickerSymbol::AAPL,
-    };
-    println!("Hello");
-    println!("{:?}", serde_json::to_string(&o_req));
+    // let o_req = OrderRequest{
+    //     amount: 10,
+    //     price: 10,
+    //     order_type: OrderType::Buy,
+    //     trader_id: 1,
+    //     symbol: TickerSymbol::AAPL,
+    // };
+    // println!("Hello");
+    // println!("{:?}", serde_json::to_string(&o_req));
+    // Example request
+    // curl localhost:3000 -XPOST -H "Content-Type: application/json" -d "{\"Amount\":10,\"Price\":1,\"OrderType\":\"Buy\",\"TraderId\":1,\"Symbol\":\"AAPL\"}"
 }
