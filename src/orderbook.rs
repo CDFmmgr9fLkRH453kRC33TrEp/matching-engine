@@ -171,7 +171,7 @@ impl OrderBook {
         }
     }
     fn handle_incoming_sell(&mut self, mut sell_order: OrderRequest) -> Option<Uuid> {
-        // println!("Incoming sell, current high buy {:?}", self.current_high_buy_price);
+        debug!("Incoming sell, current high buy {:?}", self.current_high_buy_price);
         if sell_order.price <= self.current_high_buy_price {
             // println!("Cross");
             // println!("amount to be filled remaining: {:?}", sell_order.amount);
@@ -212,6 +212,10 @@ impl OrderBook {
                 }
                 current_price_level -= 1;
             }
+            // To do: find a more elegant way to avoid "skipping" price levels on the way down.
+            current_price_level += 1; 
+            
+            
             while current_price_level > 0 {
                 if self.buy_side_limit_levels[current_price_level]
                     .orders
@@ -233,10 +237,10 @@ impl OrderBook {
         }
     }
     fn handle_incoming_buy(&mut self, mut buy_order: OrderRequest) -> Option<Uuid> {
-        // println!("Incoming Buy, current low sell {:?}", self.current_low_sell_price);
+        debug!("Incoming Buy, current low sell {:?}", self.current_low_sell_price);
         if buy_order.price >= self.current_low_sell_price {
             let mut current_price_level = self.current_low_sell_price;
-            while (buy_order.amount > 0) & (current_price_level < buy_order.price) {
+            while (buy_order.amount > 0) & (current_price_level <= buy_order.price) {
                 // let mut order_index = 0;
                 while (0
                     < self.sell_side_limit_levels[current_price_level]
@@ -272,6 +276,7 @@ impl OrderBook {
                 }
                 current_price_level += 1;
             }
+            current_price_level -= 1; 
             // in the event that a price level has been completely bought, update lowest sell price
             while current_price_level < self.sell_side_limit_levels.len() {
                 if self.sell_side_limit_levels[current_price_level]
