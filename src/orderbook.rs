@@ -1,3 +1,6 @@
+use crate::macro_calls;
+
+
 use std::cmp;
 use std::fmt;
 use std::fmt::Display;
@@ -26,24 +29,25 @@ pub enum OrderType {
     Buy,
     Sell,
 }
-#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
-pub enum TickerSymbol {
-    AAPL,
-}
+// #[derive(Debug, Copy, Clone, Deserialize, Serialize, EnumString, EnumVariantNames)]
+// pub enum macro_calls::TickerSymbol {
+//     AAPL,
+//     JNJ,
+// }
 
-// for testing, remove later
-impl fmt::Display for TickerSymbol {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            TickerSymbol::AAPL => write!(f, "AAPL"),
-        }
-    }
-}
+// // for testing, remove later
+// impl fmt::Display for macro_calls::TickerSymbol {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         match self {
+//             macro_calls::TickerSymbol::AAPL => write!(f, "AAPL"),
+//         }
+//     }
+// }
 
 #[derive(Debug)]
 pub struct OrderBook {
     /// Struct representing a double sided order book for a single product.
-    pub symbol: TickerSymbol,
+    pub symbol: macro_calls::TickerSymbol,
     // buy side in increasing price order
     buy_side_limit_levels: Vec<LimitLevel>,
     // sell side in increasing price order
@@ -66,7 +70,7 @@ pub struct OrderRequest {
     pub price: Price,
     pub order_type: OrderType,
     pub trader_id: TraderId,
-    pub symbol: TickerSymbol,
+    pub symbol: macro_calls::TickerSymbol,
 }
 
 #[derive(Debug)]
@@ -74,7 +78,7 @@ pub struct Order {
     /// Struct representing an existing order in the order book
     order_id: Uuid,
     trader_id: TraderId,
-    symbol: TickerSymbol,
+    symbol: macro_calls::TickerSymbol,
     amount: i32,
     price: Price,
     order_type: OrderType,
@@ -89,7 +93,7 @@ struct Trader {
 pub struct CancelRequest {
     order_id: OrderID,
     price: Price,
-    symbol: TickerSymbol,
+    symbol: macro_calls::TickerSymbol,
     side: OrderType,
 }
 
@@ -100,7 +104,7 @@ struct Fill {
     buy_trader_id: TraderId,
     amount: i32,
     price: Price,
-    symbol: TickerSymbol,
+    symbol: macro_calls::TickerSymbol,
     trade_time: u8,
 }
 impl OrderBook {
@@ -389,12 +393,12 @@ impl OrderBook {
 }
 
 pub fn quickstart_order_book(
-    symbol: TickerSymbol,
+    symbol: macro_calls::TickerSymbol,
     min_price: Price,
     max_price: Price,
 ) -> OrderBook {
     OrderBook {
-        symbol: TickerSymbol::from(symbol),
+        symbol: macro_calls::TickerSymbol::from(symbol),
         buy_side_limit_levels: (min_price..max_price)
             .map(|x| LimitLevel {
                 price: x,
@@ -413,7 +417,7 @@ pub fn quickstart_order_book(
 }
 
 fn main() {
-    let mut order_book = quickstart_order_book(TickerSymbol::AAPL, 0, 11);
+    let mut order_book = quickstart_order_book(macro_calls::TickerSymbol::AAPL, 0, 11);
     if let Err(err) = order_book.load_csv_test_data("src/test_orders.csv".into()) {
         println!("{}", err);
         process::exit(1);
@@ -425,7 +429,7 @@ fn main() {
     //     price: 10,
     //     order_type: OrderType::Buy,
     //     trader_id: 1,
-    //     symbol: TickerSymbol::AAPL,
+    //     symbol: macro_calls::TickerSymbol::AAPL,
     // };
     // println!("Hello");
     // println!("{:?}", serde_json::to_string(&o_req));

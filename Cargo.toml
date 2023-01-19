@@ -1,15 +1,19 @@
 [package]
-name = "orderbook"
+name = "exchange_simulator"
 version = "0.1.0"
 edition = "2021"
+authors = ["spethmccraryc@gmail.com"]
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+bytes = "0.4.12"
+serde = { version = "1", features = ["derive"]}
 
 [dependencies]
 # orderbook dependencies
 csv = "1.1"
-strum = "0.2"
-strum_macros = "0.2"
 plotters = "0.3"
 serde = { version = "1", features = ["derive"]}
 # server dependencies
@@ -22,6 +26,13 @@ log = "0.4.17"
 # testing
 tokio = { version = "1", features = ["full"] }
 
+# accounts
+enum-map = "2.4.2"
+
+# macro help
+strum = "0.24.1"
+strum_macros = "0.24.3"
+paste = "1.0.11"
 
 [dependencies.uuid]
 version = "1.2.2"

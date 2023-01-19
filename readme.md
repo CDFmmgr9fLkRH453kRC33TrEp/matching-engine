@@ -1,18 +1,6 @@
 # Rust Matching Engine, Limit Order Book, and Exchange Simulator
 Simplistic exchange simulator with in memory order book and multi asset credit limit enforcement.
 
-## CAP CGMD idea dump
-Price of each asset is tied to a real world value with sufficient movement and noise to be interesting, e.g. the temperature as measured in Alma's lap. This price would then be enforced by guaranteeing some amount of trading at a lagged price (i.e. actually have a temperature sensor) from a dummy account. 
-
-Other asset ideas (told e.g. 1 month before event):
-* wind speed somewhere on campus
-* number of internet connections in butler
-* a random number generator each second
-* average price of all other assets and the end of competition (no price enforcement)
-* behavior of some insects moving across a scale
-
-Also makes modelling a bit more interesting/open-ended, as people can be creative leading up to event, and maybe try to manipulate market.
-
 ![trade request event flowchart](docs/trade_flowchart.png "Trade request event")
 
 [Flowchart Link](https://mermaid.live/edit#pako:eNqVU9tOg0AQ_ZXJPmli_QBiTJRSNWmjsbyBDytMgZRlcXYwNsC_uwtWaaNG92ku58yZnZ1tRaJTFJ7ISNY5hPO4AnuYZIq0kkleVNi24eDCh9_3MJtddvfkYo_40qDhDm7D8GGN9IrUts6G0en7seJX2pHBj_wcky3QSIcSM1kWvHsa0b4DBdFKlhtNCtO9zDS9iHzCtGC4M6bBaeYmWuea2HZQlnDFqOoDYqZ1OtwoWjrVo9qLob8uINIECo2RGXaHAxmBN38FBn8FfjY2Eo4GrCQ7bBZU2fAoqw8fxsB-0IewSaUOlvfXI8YaMDt3mVobUzyXCPiGScOFro6F9oO7GAiWGZ04un0XuDIG-fTpZ93hjlCXMkGFFccWqRtOtMLpvny7IL9yv5ndf-iJbipGqiXx7nPH_UlwsuniTCgkJYvUfpLWacWCc1szFp41U0nbWMRVb3GyYb3eVYnwmBo8E02dSsZ5Ie3fUsLbyNJg_w7wdizz)
@@ -75,3 +63,22 @@ https://dev.to/deciduously/oops-i-did-it-againi-made-a-rust-web-api-and-it-was-n
 https://hyper.rs/guides/1/server/hello-world/
 
 https://docs.rs/tokio/latest/tokio/
+
+
+
+## CAP CGMD idea dump
+Price of each asset is tied to a real world value with sufficient movement and noise to be interesting, e.g. the temperature as measured in Alma's lap. This price would then be enforced by guaranteeing some amount of trading at a lagged price (i.e. actually have a temperature sensor) from a dummy account. 
+
+Other asset ideas (told e.g. 1 month before event):
+* wind speed somewhere on campus
+* number of internet connections in butler
+* a random number generator each second
+* average price of all other assets and the end of competition (no price enforcement)
+* behavior of some insects moving across a scale
+
+Also makes modelling a bit more interesting/open-ended, as people can be creative leading up to event, and maybe try to manipulate market.
+
+## Misc. Ideas
+* Sqlite/Reddis?
+* Better data structure for orderbook?
+* More robust account management?

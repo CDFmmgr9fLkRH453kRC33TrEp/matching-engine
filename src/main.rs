@@ -2,15 +2,21 @@ use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use std::sync::Mutex;
 extern crate env_logger;
 
+
 mod orderbook;
 mod accounts;
+mod macro_calls;
 pub use crate::accounts::TraderAccount;
-pub use crate::orderbook::TickerSymbol;
+// pub use crate::orderbook::TickerSymbol;
 pub use crate::orderbook::OrderBook;
 pub use crate::orderbook::OrderType;
 pub use crate::orderbook::OrderRequest;
 pub use crate::orderbook::CancelRequest;
 pub use crate::orderbook::quickstart_order_book;
+
+use strum::VariantNames;
+
+pub use macro_calls::TickerSymbol;
 
 struct OrderbookState {
     orderbook : Mutex<orderbook::OrderBook>,
@@ -41,12 +47,13 @@ async fn cancel_order(cancel_request: web::Json<orderbook::CancelRequest>, data:
     }
 }
 
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     pretty_env_logger::init();
     // to do: add multiple orderbook routing etc. 
     let orderbook = web::Data::new(OrderbookState {
-        orderbook: Mutex::new(orderbook::quickstart_order_book(orderbook::TickerSymbol::AAPL, 0, 11)),
+        orderbook: Mutex::new(orderbook::quickstart_order_book(macro_calls::TickerSymbol::AAPL, 0, 11)),
     });
     // to do: add actix guards to confirm correctly formed requests etc. 
     // to do: add actix guards to confirm credit checks etc. 

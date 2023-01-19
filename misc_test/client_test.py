@@ -15,7 +15,7 @@ with open('../src/test_orders.csv', newline='') as csvfile:
             'Symbol': row[3],
             'TraderId': int(row[4]),            
         }
-        r = requests.post(url="http://127.0.0.1:3000", json=jsonreq)
+        r = requests.post(url="http://127.0.0.1:3000/orders/addOrder", json=jsonreq)
 
 
 # sending post request and saving response as response object
