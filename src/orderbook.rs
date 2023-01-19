@@ -1,26 +1,25 @@
+use std::cmp;
 use std::fmt;
 use std::fmt::Display;
-use std::cmp;
 use uuid::Uuid;
-type OrderID = uuid::Uuid;
-type Price = usize;
-type TraderID = u8;
+pub type OrderID = uuid::Uuid;
+pub type Price = usize;
+pub type TraderId = u8;
 // for loading csv test files
 // use std::env;
+use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::ffi::OsString;
 use std::fs::File;
 use std::process::{self};
-use serde::{Deserialize, Serialize};
 // use serde_json::Serialize;
 
 // Logging
-extern crate pretty_env_logger;
-use log::{debug, trace, warn, info, error};
+extern crate env_logger;
+use log::{debug, error, info, trace, warn};
 
 // Importing csv
 type Record = (String, String, Option<u64>, f64, f64);
-
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 pub enum OrderType {
@@ -32,16 +31,14 @@ pub enum TickerSymbol {
     AAPL,
 }
 
-
 // for testing, remove later
 impl fmt::Display for TickerSymbol {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            TickerSymbol::AAPL => write!(f, "AAPL"),            
+            TickerSymbol::AAPL => write!(f, "AAPL"),
         }
     }
 }
-
 
 #[derive(Debug)]
 pub struct OrderBook {
@@ -63,12 +60,12 @@ struct LimitLevel {
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct OrderRequest {    
+pub struct OrderRequest {
     /// Struct representing an incoming request which has not yet been added to the orderbook
     pub amount: i32,
     pub price: Price,
     pub order_type: OrderType,
-    pub trader_id: TraderID,
+    pub trader_id: TraderId,
     pub symbol: TickerSymbol,
 }
 
@@ -76,7 +73,7 @@ pub struct OrderRequest {
 pub struct Order {
     /// Struct representing an existing order in the order book
     order_id: Uuid,
-    trader_id: TraderID,
+    trader_id: TraderId,
     symbol: TickerSymbol,
     amount: i32,
     price: Price,
@@ -84,7 +81,7 @@ pub struct Order {
 }
 #[derive(Debug, Copy, Clone)]
 struct Trader {
-    id: TraderID,
+    id: TraderId,
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
@@ -93,15 +90,14 @@ pub struct CancelRequest {
     order_id: OrderID,
     price: Price,
     symbol: TickerSymbol,
-    side: OrderType
+    side: OrderType,
 }
-
 
 #[derive(Debug)]
 struct Fill {
     /// Struct representing an order fill event, used to update credit limits, communicate orderbook status etc.
-    sell_trader_id: TraderID,
-    buy_trader_id: TraderID,
+    sell_trader_id: TraderId,
+    buy_trader_id: TraderId,
     amount: i32,
     price: Price,
     symbol: TickerSymbol,
@@ -120,7 +116,7 @@ impl OrderBook {
             order_type: new_order_request.order_type,
         };
         match new_order.order_type {
-            OrderType::Buy => {               
+            OrderType::Buy => {
                 if self.current_high_buy_price < new_order.price {
                     self.current_high_buy_price = new_order.price;
                 };
@@ -140,8 +136,6 @@ impl OrderBook {
         order_id
     }
 
-
-
     pub fn handle_incoming_cancel_request(
         &mut self,
         cancel_request: CancelRequest,
@@ -150,18 +144,38 @@ impl OrderBook {
         match cancel_request.side {
             OrderType::Buy => {
                 let mut index = 0;
-                while index < self.buy_side_limit_levels[cancel_request.price].orders.len() {
-                    if self.buy_side_limit_levels[cancel_request.price].orders[index].order_id == cancel_request.order_id {
-                        return Some(self.buy_side_limit_levels[cancel_request.price].orders.remove(index));
+                while index
+                    < self.buy_side_limit_levels[cancel_request.price]
+                        .orders
+                        .len()
+                {
+                    if self.buy_side_limit_levels[cancel_request.price].orders[index].order_id
+                        == cancel_request.order_id
+                    {
+                        return Some(
+                            self.buy_side_limit_levels[cancel_request.price]
+                                .orders
+                                .remove(index),
+                        );
                     }
                     index += 1;
                 }
             }
             OrderType::Sell => {
                 let mut index = 0;
-                while index < self.sell_side_limit_levels[cancel_request.price].orders.len() {
-                    if self.sell_side_limit_levels[cancel_request.price].orders[index].order_id == cancel_request.order_id {
-                        return Some(self.sell_side_limit_levels[cancel_request.price].orders.remove(index));
+                while index
+                    < self.sell_side_limit_levels[cancel_request.price]
+                        .orders
+                        .len()
+                {
+                    if self.sell_side_limit_levels[cancel_request.price].orders[index].order_id
+                        == cancel_request.order_id
+                    {
+                        return Some(
+                            self.sell_side_limit_levels[cancel_request.price]
+                                .orders
+                                .remove(index),
+                        );
                     }
                     index += 1;
                 }
@@ -169,19 +183,21 @@ impl OrderBook {
         }
         None
     }
-    
-    pub fn handle_incoming_order_request (&mut self, new_order_request: OrderRequest) -> Option<Uuid> {
+
+    pub fn handle_incoming_order_request(
+        &mut self,
+        new_order_request: OrderRequest,
+    ) -> Option<Uuid> {
         match new_order_request.order_type {
-            OrderType::Buy => {
-                self.handle_incoming_buy(new_order_request)
-            }
-            OrderType::Sell => {
-                self.handle_incoming_sell(new_order_request)
-            }
+            OrderType::Buy => self.handle_incoming_buy(new_order_request),
+            OrderType::Sell => self.handle_incoming_sell(new_order_request),
         }
     }
     fn handle_incoming_sell(&mut self, mut sell_order: OrderRequest) -> Option<Uuid> {
-        debug!("Incoming sell, current high buy {:?}", self.current_high_buy_price);
+        debug!(
+            "Incoming sell, current high buy {:?}",
+            self.current_high_buy_price
+        );
         if sell_order.price <= self.current_high_buy_price {
             // println!("Cross");
             // println!("amount to be filled remaining: {:?}", sell_order.amount);
@@ -193,15 +209,21 @@ impl OrderBook {
                 // self.print_book_state();
                 // println!("current price level orders: {:?}", self.buy_side_limit_levels[current_price_level].orders);
                 // let mut order_index = 0;
-                while (self.buy_side_limit_levels[current_price_level].orders.len() > 0) & (sell_order.amount > 0){
+                while (self.buy_side_limit_levels[current_price_level].orders.len() > 0)
+                    & (sell_order.amount > 0)
+                {
+                    let trade_price =
+                        self.buy_side_limit_levels[current_price_level].orders[0].price;
+                    let buy_trader_id =
+                        self.buy_side_limit_levels[current_price_level].orders[0].trader_id;
 
-                    let trade_price =    self.buy_side_limit_levels[current_price_level].orders[0].price;
-                    let buy_trader_id =    self.buy_side_limit_levels[current_price_level].orders[0].trader_id; 
-                    
-                    let amount_to_be_traded = cmp::min(sell_order.amount, self.buy_side_limit_levels[current_price_level].orders[0].amount);
-                   
-                    self.handle_fill_event(Fill{
-                        sell_trader_id: sell_order.trader_id, 
+                    let amount_to_be_traded = cmp::min(
+                        sell_order.amount,
+                        self.buy_side_limit_levels[current_price_level].orders[0].amount,
+                    );
+
+                    self.handle_fill_event(Fill {
+                        sell_trader_id: sell_order.trader_id,
                         buy_trader_id: buy_trader_id,
                         symbol: self.symbol,
                         amount: amount_to_be_traded,
@@ -210,8 +232,12 @@ impl OrderBook {
                     });
                     // TODO: create "sell" function that can handle calls to allocate credit etc.
                     sell_order.amount -= amount_to_be_traded;
-                    self.buy_side_limit_levels[current_price_level].orders[0].amount -= amount_to_be_traded;
-                    debug!("orders: {:?}", self.sell_side_limit_levels[current_price_level].orders);
+                    self.buy_side_limit_levels[current_price_level].orders[0].amount -=
+                        amount_to_be_traded;
+                    debug!(
+                        "orders: {:?}",
+                        self.sell_side_limit_levels[current_price_level].orders
+                    );
                     debug!("limit level: {:?}", current_price_level);
                     if self.buy_side_limit_levels[current_price_level].orders[0].amount == 0 {
                         self.buy_side_limit_levels[current_price_level]
@@ -223,15 +249,10 @@ impl OrderBook {
                 current_price_level -= 1;
             }
             // To do: find a more elegant way to avoid "skipping" price levels on the way down.
-            current_price_level += 1; 
-            
-            
+            current_price_level += 1;
+
             while current_price_level > 0 {
-                if self.buy_side_limit_levels[current_price_level]
-                    .orders
-                    .len()
-                    > 0
-                {
+                if self.buy_side_limit_levels[current_price_level].orders.len() > 0 {
                     self.current_high_buy_price = current_price_level;
                     break;
                 }
@@ -247,36 +268,47 @@ impl OrderBook {
         }
     }
     fn handle_incoming_buy(&mut self, mut buy_order: OrderRequest) -> Option<Uuid> {
-        debug!("Incoming Buy, current low sell {:?}", self.current_low_sell_price);
+        debug!(
+            "Incoming Buy, current low sell {:?}",
+            self.current_low_sell_price
+        );
         if buy_order.price >= self.current_low_sell_price {
             let mut current_price_level = self.current_low_sell_price;
             while (buy_order.amount > 0) & (current_price_level <= buy_order.price) {
                 // let mut order_index = 0;
-                while (0
-                    < self.sell_side_limit_levels[current_price_level]
-                        .orders
-                        .len()) & (buy_order.amount > 0)
+                while (0 < self.sell_side_limit_levels[current_price_level]
+                    .orders
+                    .len())
+                    & (buy_order.amount > 0)
                 {
                     debug!("remain to fill {:?}", buy_order.amount);
-                    debug!("{:?}",self.sell_side_limit_levels[current_price_level]
-                    .orders);
-                    let trade_price = self.sell_side_limit_levels[current_price_level].orders[0].price;
-                    let buy_trader_id = self.sell_side_limit_levels[current_price_level].orders[0].trader_id; 
-                    
-                    let amount_to_be_traded = cmp::min(buy_order.amount, self.sell_side_limit_levels[current_price_level].orders[0].amount);
-                   
-                    self.handle_fill_event(Fill{
-                        buy_trader_id: buy_order.trader_id, 
+                    debug!(
+                        "{:?}",
+                        self.sell_side_limit_levels[current_price_level].orders
+                    );
+                    let trade_price =
+                        self.sell_side_limit_levels[current_price_level].orders[0].price;
+                    let buy_trader_id =
+                        self.sell_side_limit_levels[current_price_level].orders[0].trader_id;
+
+                    let amount_to_be_traded = cmp::min(
+                        buy_order.amount,
+                        self.sell_side_limit_levels[current_price_level].orders[0].amount,
+                    );
+
+                    self.handle_fill_event(Fill {
+                        buy_trader_id: buy_order.trader_id,
                         sell_trader_id: buy_trader_id,
                         symbol: self.symbol,
                         amount: amount_to_be_traded,
                         price: trade_price,
                         trade_time: 1,
                     });
-                    
+
                     // TODO: create "sell" function that can handle calls to allocate credit etc.
                     buy_order.amount -= amount_to_be_traded;
-                    self.sell_side_limit_levels[current_price_level].orders[0].amount -= amount_to_be_traded;
+                    self.sell_side_limit_levels[current_price_level].orders[0].amount -=
+                        amount_to_be_traded;
                     if self.sell_side_limit_levels[current_price_level].orders[0].amount == 0 {
                         self.sell_side_limit_levels[current_price_level]
                             .orders
@@ -286,7 +318,7 @@ impl OrderBook {
                 }
                 current_price_level += 1;
             }
-            current_price_level -= 1; 
+            current_price_level -= 1;
             // in the event that a price level has been completely bought, update lowest sell price
             while current_price_level < self.sell_side_limit_levels.len() {
                 if self.sell_side_limit_levels[current_price_level]
@@ -308,33 +340,40 @@ impl OrderBook {
         }
     }
 
-    fn handle_fill_event(&self, fill_event: Fill){        
+    fn handle_fill_event(&self, fill_event: Fill) {
         debug!(
             "{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
-            fill_event.sell_trader_id, fill_event.buy_trader_id, fill_event.amount, fill_event.symbol, fill_event.price
+            fill_event.sell_trader_id,
+            fill_event.buy_trader_id,
+            fill_event.amount,
+            fill_event.symbol,
+            fill_event.price
         );
     }
 
     pub fn print_book_state(&self) {
-        for price_level_index in 0 .. self.buy_side_limit_levels.len() {
+        for price_level_index in 0..self.buy_side_limit_levels.len() {
             let mut outstanding_sell_orders: i32 = 0;
             let mut outstanding_buy_orders: i32 = 0;
-            for order in self.sell_side_limit_levels[price_level_index].orders.iter(){
+            for order in self.sell_side_limit_levels[price_level_index].orders.iter() {
                 outstanding_sell_orders += order.amount;
-            };
-            for order in self.buy_side_limit_levels[price_level_index].orders.iter(){
+            }
+            for order in self.buy_side_limit_levels[price_level_index].orders.iter() {
                 outstanding_buy_orders += order.amount;
-            };
+            }
             let mut string_out = String::from("");
             for _ in 0..outstanding_sell_orders {
                 string_out = string_out + "S"
-            };
+            }
             for _ in 0..outstanding_buy_orders {
                 string_out = string_out + "B"
-            };
-            println!("${}: {}", self.buy_side_limit_levels[price_level_index].price, string_out);
+            }
+            println!(
+                "${}: {}",
+                self.buy_side_limit_levels[price_level_index].price, string_out
+            );
             // book_ouput[price_level_index] = outstanding_orders;
-        };
+        }
     }
 
     pub fn load_csv_test_data(&mut self, file_path: OsString) -> Result<(), Box<dyn Error>> {
@@ -349,7 +388,11 @@ impl OrderBook {
     }
 }
 
-pub fn quickstart_order_book (symbol: TickerSymbol, min_price: Price, max_price:Price) -> OrderBook {
+pub fn quickstart_order_book(
+    symbol: TickerSymbol,
+    min_price: Price,
+    max_price: Price,
+) -> OrderBook {
     OrderBook {
         symbol: TickerSymbol::from(symbol),
         buy_side_limit_levels: (min_price..max_price)
@@ -358,7 +401,7 @@ pub fn quickstart_order_book (symbol: TickerSymbol, min_price: Price, max_price:
                 orders: Vec::new(),
             })
             .collect(),
-        sell_side_limit_levels:(min_price..max_price)
+        sell_side_limit_levels: (min_price..max_price)
             .map(|x| LimitLevel {
                 price: x,
                 orders: Vec::new(),
