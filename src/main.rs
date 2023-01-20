@@ -14,9 +14,9 @@ pub use crate::orderbook::OrderRequest;
 pub use crate::orderbook::CancelRequest;
 pub use crate::orderbook::quickstart_order_book;
 
-use strum::VariantNames;
+use macro_calls::TickerSymbol;
+use macro_calls::AssetBalances;
 
-pub use macro_calls::TickerSymbol;
 
 struct OrderbookState {
     orderbook : Mutex<orderbook::OrderBook>,
@@ -24,6 +24,11 @@ struct OrderbookState {
 
 struct AccountState{
     account : Mutex<accounts::TraderAccount>
+}
+
+struct GlobalState {
+    orderbooks_states: Vec<OrderbookState>,
+    account_states: Vec<AccountState>
 }
 
 async fn add_order(order_request: web::Json<orderbook::OrderRequest>, data: web::Data<OrderbookState>) -> String {

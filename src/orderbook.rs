@@ -3,7 +3,7 @@ use crate::macro_calls;
 
 use std::cmp;
 use std::fmt;
-use std::fmt::Display;
+// use std::fmt::Display;
 use uuid::Uuid;
 pub type OrderID = uuid::Uuid;
 pub type Price = usize;
