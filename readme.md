@@ -21,6 +21,10 @@ On request:
 * This is blocking, and other connection handlers must wait for orderbook to be unlocked in order to pass a request
 * Could implement some kind of queue here to allow temporary burst traffic, but I think the simple version should be enough
 
+## Complile Time Asset List/User IDs
+* The list of assets is injected via macros and a build script. This is to allow for a single list across multiple files, types, and contexts (primarily) to allow for the construction of structs which store application state. 
+* This should allow for more configuration in the future (i.e. min and max prices, credit limits per asset etc.) to be extracted to another file. 
+
 ## Enforcing Credit Limits
 Going short is not allowed (i.e. in order to place sell order, you must actually have adequate supply of the asset).
 Going into debt is not allowed (i.e. in order to place a buy order, the total value of all your buy orders across assets must be leq to your current money supply)
