@@ -35,11 +35,24 @@ fn main() {
                 pub struct AssetBalances {{
                     $($name: usize, )*
                 }}
+                impl AssetBalances {{
+                    pub fn index_ref (&self, symbol:TickerSymbol) -> &usize{{
+                        match symbol {{
+                            $($name => {{&self.$name}}, )*
+                        }}
+                    }}
+                    pub fn index_ref_mut (&mut self, symbol:TickerSymbol) -> usize{{
+                        match symbol {{
+                            $($name => {{self.$name}}, )*
+                        }}
+                    }}
+                }}
             }};
         }}
         
-    generate_enum!({});",
-        symbols.trim()
+    generate_enum!({});
+    generate_account_balances_struct!({});",
+        symbols.trim(), symbols.trim()
     );
     let bytes = Bytes::from(content.trim());
     f.write_all(&bytes).unwrap();
