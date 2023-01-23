@@ -47,6 +47,7 @@ pub enum OrderType {
 #[derive(Debug)]
 pub struct OrderBook {
     /// Struct representing a double sided order book for a single product.
+    // todo: add offset to allow for non 0 min prices
     pub symbol: macro_calls::TickerSymbol,
     // buy side in increasing price order
     buy_side_limit_levels: Vec<LimitLevel>,
@@ -55,6 +56,8 @@ pub struct OrderBook {
     current_high_buy_price: Price,
     current_low_sell_price: Price,
 }
+
+
 #[derive(Debug)]
 struct LimitLevel {
     /// Struct representing one price level in the orderbook, containing a vector of Orders at this price
@@ -76,12 +79,12 @@ pub struct OrderRequest {
 #[derive(Debug)]
 pub struct Order {
     /// Struct representing an existing order in the order book
-    order_id: Uuid,
-    trader_id: TraderId,
-    symbol: macro_calls::TickerSymbol,
-    amount: i32,
-    price: Price,
-    order_type: OrderType,
+    pub order_id: Uuid,
+    pub trader_id: TraderId,
+    pub symbol: macro_calls::TickerSymbol,
+    pub amount: i32,
+    pub price: Price,
+    pub order_type: OrderType,
 }
 #[derive(Debug, Copy, Clone)]
 struct Trader {
@@ -91,9 +94,9 @@ struct Trader {
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct CancelRequest {
-    order_id: OrderID,
+    pub order_id: OrderID,
     price: Price,
-    symbol: macro_calls::TickerSymbol,
+    pub symbol: macro_calls::TickerSymbol,
     side: OrderType,
 }
 

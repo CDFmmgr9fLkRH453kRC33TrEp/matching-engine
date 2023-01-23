@@ -17,55 +17,65 @@ pub use crate::orderbook::quickstart_order_book;
 use macro_calls::TickerSymbol;
 use macro_calls::AssetBalances;
 
+use macro_calls::GlobalOrderBookState;
+use macro_calls::GlobalAccountState;
 
-struct OrderbookState {
-    orderbook : Mutex<orderbook::OrderBook>,
-}
+// impl GlobalOrderBookState {
+//     pub fn index_ref (&self, symbol:&TickerSymbol) -> &Mutex<crate::orderbook::OrderBook>{
+//         match symbol {
+//             $($name => {&self.$name}, )*
+//         }
+//     }
+//     pub fn index_ref_mut (&mut self, symbol:&TickerSymbol) -> &mut Mutex<crate::orderbook::OrderBook>{
+//         match symbol {
+//             $($name => { &mut self.$name}, )*
+//         }
+//     }
+// }
 
-struct AccountState{
-    account : Mutex<accounts::TraderAccount>
-}
 
-struct GlobalState {
-    orderbooks_states: Vec<OrderbookState>,
-    account_states: Vec<AccountState>
-}
-
-async fn add_order(order_request: web::Json<orderbook::OrderRequest>, data: web::Data<OrderbookState>) -> String {
-    let mut orderbook = data.orderbook.lock().unwrap();
-    let order_id = orderbook.handle_incoming_order_request(order_request.into_inner());
-    orderbook.print_book_state();
+async fn add_order(order_request: web::Json<orderbook::OrderRequest>, data: web::Data<macro_calls::GlobalOrderBookState>) -> String {
+    let order_request_inner = order_request.into_inner();
+    let symbol = &order_request_inner.symbol;
+    let orderbook = data.index_ref(symbol);
+    let order_id =  data.index_ref(symbol).lock().unwrap().handle_incoming_order_request(order_request_inner);
+    orderbook.lock().unwrap().print_book_state();
     match order_id {
         Some(inner) => return inner.hyphenated().to_string(),
         None => String::from("Filled"),
     }
 }
 
-async fn cancel_order(cancel_request: web::Json<orderbook::CancelRequest>, data: web::Data<OrderbookState>) -> String {
-    let mut orderbook = data.orderbook.lock().unwrap();
-    let order_id = orderbook.handle_incoming_cancel_request(cancel_request.into_inner());
-    orderbook.print_book_state();
+async fn cancel_order(cancel_request: web::Json<orderbook::CancelRequest>, data: web::Data<macro_calls::GlobalOrderBookState>) -> String {
+    let cancel_request_inner = cancel_request.into_inner();
+    let symbol = &cancel_request_inner.symbol;
+    let order_id = data.index_ref(symbol).lock().unwrap().handle_incoming_cancel_request(cancel_request_inner);
     // todo: add proper error handling/messaging
     match order_id {        
-        Some(inner) => String::from("Successfully Cancelled Order"),
+        Some(inner) => String::from(format!("Successfully Cancelled Order {:?}", inner.order_id)),
         None => String::from("Error Processing Cancellation Request"),
     }
 }
 
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     pretty_env_logger::init();
-    // to do: add multiple orderbook routing etc. 
-    let orderbook = web::Data::new(OrderbookState {
-        orderbook: Mutex::new(orderbook::quickstart_order_book(macro_calls::TickerSymbol::AAPL, 0, 11)),
-    });
     // to do: add actix guards to confirm correctly formed requests etc. 
     // to do: add actix guards to confirm credit checks etc. 
+    // to do: move this declaration to macro_calls file to generate fields automatically
+    let global_order_book_state = web::Data::new(macro_calls::GlobalOrderBookState {
+        AAPL: Mutex::new(quickstart_order_book(macro_calls::TickerSymbol::AAPL, 0, 11)), 
+        JNJ: Mutex::new(quickstart_order_book(macro_calls::TickerSymbol::JNJ, 0, 11)), 
+    });
+
+    // let counter = web::Data::new(AppStateWithCounter {
+    //     counter: Mutex::new(0),
+    // });
+
     HttpServer::new(move || {
         App::new().service(
-            web::scope("/{symbol}")
-            .app_data(orderbook.clone()) // <- register the created data
+            web::scope("/orders")
+            .app_data(global_order_book_state.clone()) // <- register the created data
             .route("/addOrder", web::post().to(add_order))
             .route("/cancelOrder", web::post().to(cancel_order)), 
         )
