@@ -30,6 +30,7 @@ use std::sync::Mutex;
 use uuid::Uuid;
 use crate::accounts::TraderAccount;
 use crate::orderbook::OrderBook;
+// use crate::orderbook::TraderId;
 
 macro_rules! generate_enum {{
     ([$($name:ident),*]) => {{
@@ -40,23 +41,35 @@ macro_rules! generate_enum {{
     }};
 }}
 
+macro_rules! generate_accounts_enum {{
+    ([$($name:ident),*]) => {{
+        #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+        pub enum TraderId {{
+            $($name, )*
+        }}
+    }};
+}}
+
 macro_rules! generate_account_balances_struct {{
     ([$($name:ident),*]) => {{
         #[derive(Debug)]
         pub struct AssetBalances {{
-            $($name: usize, )*
-        }}
+            $($name: Mutex<usize>, )*
+        }}    
+
         impl AssetBalances {{
-            pub fn index_ref (&self, symbol:&TickerSymbol) -> &usize{{
+            pub fn index_ref (&self, symbol:&TickerSymbol) -> &Mutex<usize>{{
                 match symbol {{
                     $($name => {{&self.$name}}, )*
                 }}
+            }}     
+            
+            pub fn new() -> Self {{
+                Self {{ 
+                    $($name: Mutex::new(0), )*
+                 }}
             }}
-            pub fn index_ref_mut (&mut self, symbol:&TickerSymbol) -> usize{{
-                match symbol {{
-                    $($name => {{self.$name}}, )*
-                }}
-            }}
+               
         }}
     }};
 }}
@@ -77,28 +90,24 @@ macro_rules! generate_global_state {{
         }}
         
         pub struct GlobalAccountState {{
-            $($account_id: crate::accounts::TraderAccount, )*
+            $(pub $account_id: Mutex<crate::accounts::TraderAccount>, )*
         }}
 
         impl GlobalAccountState {{
-            pub fn index_ref (&self, account_id:uuid::Uuid) -> &crate::accounts::TraderAccount{{
+            pub fn index_ref (&self, account_id:crate::macro_calls::TraderId,) -> &Mutex<crate::accounts::TraderAccount>{{
                 match account_id {{
                     $($account_id => {{&self.$account_id}}, )*
                 }}
-            }}
-            pub fn index_ref_mut (&mut self, account_id:uuid::Uuid) -> &mut crate::accounts::TraderAccount{{
-                match account_id {{
-                    $($account_id => {{&mut self.$account_id}}, )*
-                }}
-            }}
+            }}                
         }}
     }};
 }}
         
 generate_enum!({});
 generate_account_balances_struct!({});
-generate_global_state!({}, {});",
-        symbols.trim(), symbols.trim(), symbols.trim(), account_ids.trim()
+generate_global_state!({}, {});
+generate_accounts_enum!({});",
+        symbols.trim(), symbols.trim(), symbols.trim(), account_ids.trim(), account_ids.trim()
     );
     let bytes = Bytes::from(content.trim());
     f.write_all(&bytes).unwrap();

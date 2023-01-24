@@ -4,14 +4,29 @@ use crate::macro_calls;
 use macro_calls::AssetBalances;
 
 pub struct TraderAccount {
-    trader_id: orderbook::TraderId,
-    cents_balance: usize,
+    pub trader_id: macro_calls::TraderId,
+    pub cents_balance: usize,
+    pub total_outstanding_cents_balance: usize,
     // asset_balances, outstanding_order_balances updated on fill event, and so should be current
     // in asset lots
-    asset_balances: macro_calls::AssetBalances,
+    pub asset_balances: macro_calls::AssetBalances,
     // in cents
-    outstanding_order_balances: macro_calls::AssetBalances,
+    pub outstanding_order_balances: macro_calls::AssetBalances,
 }
+
+pub fn quickstart_trader_account (trader_id: macro_calls::TraderId, cents_balance: usize) -> TraderAccount {
+    TraderAccount {
+        trader_id: trader_id,
+        cents_balance: cents_balance,
+        total_outstanding_cents_balance: 0,
+        // asset_balances, outstanding_order_balances updated on fill event, and so should be current
+        // in asset lots
+        asset_balances: macro_calls::AssetBalances::new(),
+        // in cents
+        outstanding_order_balances: macro_calls::AssetBalances::new(),
+    }
+}
+
 
 // impl TraderAccount {
 //     pub fn asset_balance_geq (&self, symbol: macro_calls::TickerSymbol, amount: &usize) -> bool {
