@@ -27,6 +27,9 @@ On request:
 
 ## Enforcing Credit Limits
 Going short is not allowed (i.e. in order to place sell order, you must actually have adequate supply of the asset).
+
+Instead of allowing for shorts, we can introduce "inversed" assets of each type to allow for negative exposure, also maybe nice opportunity for people to try an arbitrage strategy. 
+
 Going into debt is not allowed (i.e. in order to place a buy order, the total value of all your buy orders across assets must be leq to your current money supply)
 
 ## Account Management
