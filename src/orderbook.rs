@@ -196,14 +196,14 @@ impl OrderBook {
     pub fn handle_incoming_order_request(
         &mut self,
         new_order_request: OrderRequest,
-        accounts_data: web::Data<macro_calls::GlobalAccountState>
+        accounts_data: &web::Data<macro_calls::GlobalAccountState>
     ) -> Option<Uuid> {
         match new_order_request.order_type {
             OrderType::Buy => self.handle_incoming_buy(new_order_request, accounts_data),
             OrderType::Sell => self.handle_incoming_sell(new_order_request, accounts_data),
         }
     }
-    fn handle_incoming_sell(&mut self, mut sell_order: OrderRequest, accounts_data: web::Data<macro_calls::GlobalAccountState>) -> Option<Uuid> {
+    fn handle_incoming_sell(&mut self, mut sell_order: OrderRequest, accounts_data: &web::Data<macro_calls::GlobalAccountState>) -> Option<Uuid> {
         debug!(
             "Incoming sell, current high buy {:?}",
             self.current_high_buy_price
@@ -279,7 +279,7 @@ impl OrderBook {
             return None;
         }
     }
-    fn handle_incoming_buy(&mut self, mut buy_order: OrderRequest, accounts_data: web::Data<macro_calls::GlobalAccountState>) -> Option<Uuid> {
+    fn handle_incoming_buy(&mut self, mut buy_order: OrderRequest, accounts_data: &web::Data<macro_calls::GlobalAccountState>) -> Option<Uuid> {
         debug!(
             "Incoming Buy, current low sell {:?}",
             self.current_low_sell_price
@@ -356,13 +356,16 @@ impl OrderBook {
     }
 
     fn handle_fill_event(&self, buy_trader: &Mutex<accounts::TraderAccount>, sell_trader: &Mutex<accounts::TraderAccount>, fill_event: Fill) {
+        
         let cent_value = &fill_event.amount * &fill_event.price;            
         
-        *buy_trader.lock().unwrap().asset_balances.index_ref(&fill_event.symbol).lock().unwrap() -= fill_event.amount;
-        buy_trader.lock().unwrap().cents_balance += cent_value;
+        *buy_trader.lock().unwrap().asset_balances.index_ref(&fill_event.symbol).lock().unwrap() += fill_event.amount;
+        buy_trader.lock().unwrap().cents_balance -= cent_value;
+        // buy_trader.lock().unwrap().net_cents_balance += cent_value;
         
-        *sell_trader.lock().unwrap().asset_balances.index_ref(&fill_event.symbol).lock().unwrap() += fill_event.amount;
-        sell_trader.lock().unwrap().cents_balance -= cent_value;
+        *sell_trader.lock().unwrap().asset_balances.index_ref(&fill_event.symbol).lock().unwrap() -= fill_event.amount;
+        sell_trader.lock().unwrap().cents_balance += cent_value;
+        sell_trader.lock().unwrap().net_cents_balance += cent_value;
 
         debug!(
             "{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
@@ -375,6 +378,7 @@ impl OrderBook {
     }
 
     pub fn print_book_state(&self) {
+        println!("Orderbook for {:?}", self.symbol);
         for price_level_index in 0..self.buy_side_limit_levels.len() {
             let mut outstanding_sell_orders: usize = 0;
             let mut outstanding_buy_orders: usize = 0;

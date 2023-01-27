@@ -60,7 +60,7 @@ macro_rules! generate_account_balances_struct {{
         impl AssetBalances {{
             pub fn index_ref (&self, symbol:&TickerSymbol) -> &Mutex<usize>{{
                 match symbol {{
-                    $($name => {{&self.$name}}, )*
+                    $(TickerSymbol::$name => {{&self.$name}}, )*
                 }}
             }}     
             
@@ -84,7 +84,7 @@ macro_rules! generate_global_state {{
         impl GlobalOrderBookState {{
             pub fn index_ref (&self, symbol:&TickerSymbol) -> &Mutex<crate::orderbook::OrderBook>{{
                 match symbol {{
-                    $($name => {{&self.$name}}, )*
+                    $(TickerSymbol::$name => {{&self.$name}}, )*
                 }}
             }}
         }}
@@ -96,7 +96,7 @@ macro_rules! generate_global_state {{
         impl GlobalAccountState {{
             pub fn index_ref (&self, account_id:crate::macro_calls::TraderId,) -> &Mutex<crate::accounts::TraderAccount>{{
                 match account_id {{
-                    $($account_id => {{&self.$account_id}}, )*
+                    $(TraderId::$account_id => {{&self.$account_id}}, )*
                 }}
             }}                
         }}

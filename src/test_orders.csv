@@ -1,3 +1,3 @@
 OrderType,Amount,Price,Symbol,TraderId
-Sell,2,7,AAPL,Columbia_A
-Buy,2,5,AAPL,Columbia_B
+Sell,2,7,JNJ,Columbia_A
+Buy,2,5,JNJ,Columbia_B
