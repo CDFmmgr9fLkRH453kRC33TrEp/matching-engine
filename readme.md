@@ -89,3 +89,8 @@ Also makes modelling a bit more interesting/open-ended, as people can be creativ
 * Sqlite/Reddis?
 * Better data structure for orderbook?
 * More robust account management?
+
+
+## Todo:
+* convert global state to actor which has a list of all trader account addresses to send messages to etc.
+* convert trader accounts to actix actors which register new streams as connections are made or dropped

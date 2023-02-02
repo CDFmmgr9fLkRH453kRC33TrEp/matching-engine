@@ -146,14 +146,15 @@ async fn cancel_order(
     }
 }
 
-pub struct MyWebSocket {
+pub struct MyWebSocketActor {
     hb: Instant,
     global_account_state: web::Data<crate::macro_calls::GlobalAccountState>,
     global_orderbook_state: web::Data<crate::macro_calls::GlobalOrderBookState>,
 }
 
-impl MyWebSocket {
+impl MyWebSocketActor {
     pub fn new() -> Self {
+        // go through message queue and send all outstanding messages
         Self {
             hb: Instant::now(),
             global_orderbook_state: web::Data::new(crate::macro_calls::GlobalOrderBookState {
@@ -202,8 +203,10 @@ pub async fn websocket(
     accounts_data: web::Data<crate::macro_calls::GlobalAccountState>,
 ) -> Result<HttpResponse, Error> {
     println!("NEW CONNECTION");
+    // need to somehow check if this trader all ready has an active connection
+    // if not, all outstanding messages will be sent on the creation of the new websocket
     ws::start(
-        MyWebSocket {
+        MyWebSocketActor {
             hb: Instant::now(),
             global_account_state: accounts_data.clone(),
             global_orderbook_state: orderbook_data.clone(),
@@ -213,7 +216,7 @@ pub async fn websocket(
     )
 }
 
-impl Actor for MyWebSocket {
+impl Actor for MyWebSocketActor {
     type Context = ws::WebsocketContext<Self>;
 
     // Start the heartbeat process for this connection
@@ -223,7 +226,12 @@ impl Actor for MyWebSocket {
 }
 
 // The `StreamHandler` trait is used to handle the messages that are sent over the socket.
-impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocket {
+impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor {
+    // started() function registers this with the trader account's actor addr
+    // and sends out all fill messages in the trader account's queue
+
+    // finished() function removes the trader account's actor addr
+
     // The `handle()` function is where we'll determine the response
     // to the client's messages. So, for example, if we ping the client,
     // it should respond with a pong. These two messages are necessary

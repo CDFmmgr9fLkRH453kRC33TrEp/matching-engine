@@ -104,6 +104,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(global_orderbook_state.clone()) // <- register the created data
             .app_data(global_account_state.clone()) // <- register the created data
             .route("/ws", web::get().to(websockets::websocket))
+            // .route("/viz", web::get().to(websockets::websocket))
             .route("/addOrder", web::post().to(add_order))
             .route("/cancelOrder", web::post().to(cancel_order)), 
         )

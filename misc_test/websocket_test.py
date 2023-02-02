@@ -16,5 +16,5 @@ jsonreq = {
 
 ws.send(json.dumps(jsonreq))
 # ws.send("Hello")
-time.sleep(20)
+# time.sleep(20)
 print(ws.recv())

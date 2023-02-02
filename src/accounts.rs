@@ -6,6 +6,17 @@ use macro_calls::AssetBalances;
 pub struct TraderAccount {
     pub trader_id: macro_calls::TraderId,
     pub cents_balance: usize,
+    // pub websocket actor: actix addr
+    // pub fill_event_queue: fifo queue
+    // pub fn send_message {
+    //  try to send to websocket
+    //  if no connection, add to end of queue
+    // }
+    // pub fn register connection {
+    //  on connection, make sure no other connections exist
+    //  register actix actor and update addr
+    //  send out all messages in fill event queue
+    // }
     // in cents, equal to total of owned cents minus total value of outstanding buy orders
     pub net_cents_balance: usize,
     // asset_balances, net_asset_balances updated on fill event, and so should be current
@@ -27,23 +38,3 @@ pub fn quickstart_trader_account (trader_id: macro_calls::TraderId, cents_balanc
         net_asset_balances: macro_calls::AssetBalances::new(),
     }
 }
-
-
-// impl TraderAccount {
-//     pub fn asset_balance_geq (&self, symbol: macro_calls::TickerSymbol, amount: &usize) -> bool {
-//         // check number of currently owned assets of a given symbol (i.e. to ensure no shorts)
-//         if self.asset_balances.index_ref(symbol) >= amount {
-//             return true;
-//         } else {
-//             return false;
-//         }        
-//     }
-//     pub fn outstanding_order_balance_geq (&self, symbol: macro_calls::TickerSymbol, amount: &usize) -> bool {
-//         // check number of currently owned assets of a given symbol (i.e. to ensure no shorts)
-//         if self.net_asset_balances.index_ref(symbol) >= amount {
-//             return true;
-//         } else {
-//             return false;
-//         }        
-//     }
-// }
