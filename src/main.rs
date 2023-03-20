@@ -2,6 +2,7 @@ use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use websockets::websocket;
 use std::sync::Mutex;
 extern crate env_logger;
+use std::net::Ipv4Addr;
 
 
 mod orderbook;
@@ -25,7 +26,7 @@ use macro_calls::GlobalOrderBookState;
 use macro_calls::GlobalAccountState;
 
 
-struct GlobalState {
+struct GlobalState {    
     orderbook_state:macro_calls::GlobalOrderBookState,
     account_state: macro_calls::GlobalAccountState
 }
@@ -88,12 +89,14 @@ async fn main() -> std::io::Result<()> {
         JNJ: Mutex::new(quickstart_order_book(macro_calls::TickerSymbol::JNJ, 0, 11)), 
     });
 
-    let global_account_state = web::Data::new(macro_calls::GlobalAccountState {
-        Columbia_A: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_A, 10)),
-        Columbia_B: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_B, 10))
+    let global_account_state = web::Data::new(macro_calls::GlobalAccountState {        
+        Columbia_A: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_A, 10, Ipv4Addr::new(172,16,123,1))),
+        Columbia_B: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_B, 10,Ipv4Addr::new(172,16,123,2))),
     });
     *global_account_state.Columbia_A.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 10;
     *global_account_state.Columbia_A.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 10;
+    *global_account_state.Columbia_B.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 10;
+    *global_account_state.Columbia_B.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 10;
     // let counter = web::Data::new(AppStateWithCounter {
     //     counter: Mutex::new(0),
     // });
@@ -109,7 +112,7 @@ async fn main() -> std::io::Result<()> {
             .route("/cancelOrder", web::post().to(cancel_order)), 
         )
     })
-    .bind(("127.0.0.1", 3000))?
+    .bind(("0.0.0.0", 4000))?
     .run()
     .await
 }

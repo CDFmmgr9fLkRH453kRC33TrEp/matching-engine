@@ -2,14 +2,29 @@ use actix::prelude::*;
 use actix_web::web::Bytes;
 use actix_web::Error;
 use actix_web_actors::ws;
+use plotters::coord::types;
+use std::f32::consts::E;
+use std::fmt::format;
 use std::time::{Duration, Instant};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
-
+use crate::orderbook::Fill;
+use crate::websockets::ws::CloseReason;
+use crate::websockets::ws::CloseCode::Policy;
 use actix_web::{get, post, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use std::sync::Mutex;
 extern crate env_logger;
+
+use queues::IsQueue;
+
+use actix::prelude::*;
+
+
+
+
+
+use std::any::type_name;
 
 // mod orderbook;
 // mod accounts;
@@ -19,6 +34,8 @@ extern crate env_logger;
 pub use crate::accounts::TraderAccount;
 // pub use crate::orderbook::TickerSymbol;
 pub use crate::accounts::quickstart_trader_account;
+use crate::{macro_calls, orderbook};
+use crate::macro_calls::TraderIp;
 pub use crate::orderbook::quickstart_order_book;
 pub use crate::orderbook::CancelRequest;
 pub use crate::orderbook::OrderBook;
@@ -147,41 +164,43 @@ async fn cancel_order(
 }
 
 pub struct MyWebSocketActor {
+    // includes 
+    connection_ip: TraderIp,
     hb: Instant,
     global_account_state: web::Data<crate::macro_calls::GlobalAccountState>,
     global_orderbook_state: web::Data<crate::macro_calls::GlobalOrderBookState>,
 }
 
 impl MyWebSocketActor {
-    pub fn new() -> Self {
-        // go through message queue and send all outstanding messages
-        Self {
-            hb: Instant::now(),
-            global_orderbook_state: web::Data::new(crate::macro_calls::GlobalOrderBookState {
-                AAPL: Mutex::new(quickstart_order_book(
-                    crate::macro_calls::TickerSymbol::AAPL,
-                    0,
-                    11,
-                )),
-                JNJ: Mutex::new(quickstart_order_book(
-                    crate::macro_calls::TickerSymbol::JNJ,
-                    0,
-                    11,
-                )),
-            }),
+    // pub fn new() -> Self {
+    //     // go through message queue and send all outstanding messages
+    //     Self {
+    //         hb: Instant::now(),
+    //         global_orderbook_state: web::Data::new(crate::macro_calls::GlobalOrderBookState {
+    //             AAPL: Mutex::new(quickstart_order_book(
+    //                 crate::macro_calls::TickerSymbol::AAPL,
+    //                 0,
+    //                 11,
+    //             )),
+    //             JNJ: Mutex::new(quickstart_order_book(
+    //                 crate::macro_calls::TickerSymbol::JNJ,
+    //                 0,
+    //                 11,
+    //             )),
+    //         }),
 
-            global_account_state: web::Data::new(crate::macro_calls::GlobalAccountState {
-                Columbia_A: Mutex::new(crate::accounts::quickstart_trader_account(
-                    crate::macro_calls::TraderId::Columbia_A,
-                    10,
-                )),
-                Columbia_B: Mutex::new(crate::accounts::quickstart_trader_account(
-                    crate::macro_calls::TraderId::Columbia_B,
-                    10,
-                )),
-            }),
-        }
-    }
+    //         global_account_state: web::Data::new(crate::macro_calls::GlobalAccountState {
+    //             Columbia_A: Mutex::new(crate::accounts::quickstart_trader_account(
+    //                 crate::macro_calls::TraderId::Columbia_A,
+    //                 10,
+    //             )),
+    //             Columbia_B: Mutex::new(crate::accounts::quickstart_trader_account(
+    //                 crate::macro_calls::TraderId::Columbia_B,
+    //                 10,
+    //             )),
+    //         }),
+    //     }
+    // }
     // This function will run on an interval, every 5 seconds to check
     // that the connection is still alive. If it's been more than
     // 10 seconds since the last ping, we'll close the connection.
@@ -202,11 +221,15 @@ pub async fn websocket(
     orderbook_data: web::Data<crate::macro_calls::GlobalOrderBookState>,
     accounts_data: web::Data<crate::macro_calls::GlobalAccountState>,
 ) -> Result<HttpResponse, Error> {
-    println!("NEW CONNECTION");
+    println!("host: {}", req.connection_info().host());
+    println!("peer_addr: {}", req.connection_info().peer_addr().unwrap());
+    println!("realip_remote_addr: {}", req.connection_info().realip_remote_addr().unwrap());
+    println!("NEW CONNECTION");    
     // need to somehow check if this trader all ready has an active connection
     // if not, all outstanding messages will be sent on the creation of the new websocket
     ws::start(
         MyWebSocketActor {
+            connection_ip: req.connection_info().realip_remote_addr().unwrap().clone().parse().unwrap(), 
             hb: Instant::now(),
             global_account_state: accounts_data.clone(),
             global_orderbook_state: orderbook_data.clone(),
@@ -225,11 +248,76 @@ impl Actor for MyWebSocketActor {
     }
 }
 
+
+/// Define handler for `Ping` message
+impl Handler<orderbook::Fill> for MyWebSocketActor {
+    type Result = ();
+
+    fn handle(&mut self, msg: orderbook::Fill, ctx: &mut Self::Context)  {
+        println!("Message received");
+        let fill_event = msg;
+        ctx.text(format!("{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
+        fill_event.sell_trader_id,
+        fill_event.buy_trader_id,
+        fill_event.amount,
+        fill_event.symbol,
+        fill_event.price));
+    }
+}
+
 // The `StreamHandler` trait is used to handle the messages that are sent over the socket.
 impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor {
     // started() function registers this with the trader account's actor addr
     // and sends out all fill messages in the trader account's queue
 
+    fn finished(&mut self, ctx: &mut Self::Context) {
+        let account_id = crate::macro_calls::ip_to_id(self.connection_ip).unwrap();
+        let curr_actor = &mut self.global_account_state.index_ref(account_id).lock().unwrap().current_actor;
+        match curr_actor {
+            Some(x) => {
+                *curr_actor = None;
+            },
+            None => println!("Error, no websocket connected?")
+        }
+        println!("Connection Ended.")
+    }
+
+    fn started(&mut self, ctx: &mut Self::Context) {        
+        
+        let connection_ip = self.connection_ip;
+        let account_id = crate::macro_calls::ip_to_id(connection_ip).unwrap();
+        println!("{:?}", account_id);
+        {
+        let curr_actor = &mut self.global_account_state.index_ref(account_id).lock().unwrap().current_actor;
+        match curr_actor {
+            Some(x) => {
+                println!("Error, you already have a websocket connected");
+                ctx.close(Some(CloseReason{code:Policy, description:Some(format!("you already have a websocket connected."))}))
+            },
+            None => *curr_actor = Some(ctx.address())
+        }
+        println!("{:?}", curr_actor);
+        }   
+        let message_queue = &mut self.global_account_state.index_ref(account_id).lock().unwrap().message_backup;
+        
+        // ctx.text("new message");
+        while (message_queue.size() != 0) {
+            println!("Message #{:?}", message_queue.size());
+            let fill_event = message_queue.remove().unwrap();
+            // println!("{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
+            // fill_event.sell_trader_id,
+            // fill_event.buy_trader_id,
+            // fill_event.amount,
+            // fill_event.symbol,
+            // fill_event.price);
+            ctx.text(format!("{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
+            fill_event.sell_trader_id,
+            fill_event.buy_trader_id,
+            fill_event.amount,
+            fill_event.symbol,
+            fill_event.price));
+        }
+    }
     // finished() function removes the trader account's actor addr
 
     // The `handle()` function is where we'll determine the response
@@ -242,10 +330,19 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                 // handle incoming JSON as usual.
                 let d = &msg.to_string();
                 let t: OrderRequest = serde_json::from_str(d).unwrap();
-                let res = add_order(t, &self.global_orderbook_state, &self.global_account_state);
-                println!("{}", res);
-                // println!("{:?}", serde_json::to_string_pretty(&t));
-                ctx.text(msg)
+
+                let connection_ip = self.connection_ip;
+                let ip_needed = self.global_account_state.index_ref(t.trader_id).lock().unwrap().trader_ip;
+                if (connection_ip != ip_needed) {
+                    println!("connection_ip: {}", connection_ip);
+                    println!("ip_needed: {}", ip_needed);
+                    ctx.text("invalid ip for provided trader id.")
+                } else {
+                    let res = add_order(t, &self.global_orderbook_state, &self.global_account_state);
+                    println!("{}", res);
+                    // println!("{:?}", serde_json::to_string_pretty(&t));
+                    ctx.text(msg)
+                }
             }
 
             // Ping/Pong will be used to make sure the connection is still alive

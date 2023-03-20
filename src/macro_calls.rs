@@ -1,3 +1,20 @@
+use std::collections::HashMap;
+use std::net::Ipv4Addr;
+pub type TraderIp = std::net::Ipv4Addr;
+use std::io;
+
+
+// TODO: clean up this mess!!!!!
+pub fn ip_to_id (ip: Ipv4Addr) -> Result<crate::macro_calls::TraderId, io::Error> {
+    if (ip == Ipv4Addr::new(172,16,123,1)) {
+        return Ok(crate::macro_calls::TraderId::Columbia_A);
+    } else if (ip == Ipv4Addr::new(172,16,123,2)){
+        return Ok(crate::macro_calls::TraderId::Columbia_B);
+    } else {
+        panic!("not a known ip");
+    }
+}
+
 use core::fmt::Debug;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
@@ -5,6 +22,7 @@ use uuid::Uuid;
 use crate::accounts::TraderAccount;
 use crate::orderbook::OrderBook;
 // use crate::orderbook::TraderId;
+// hello
 
 macro_rules! generate_enum {
     ([$($name:ident),*]) => {
@@ -20,7 +38,7 @@ macro_rules! generate_accounts_enum {
         #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
         pub enum TraderId {
             $($name, )*
-        }
+        }       
     };
 }
 
@@ -72,11 +90,11 @@ macro_rules! generate_global_state {
                 match account_id {
                     $(TraderId::$account_id => {&self.$account_id}, )*
                 }
-            }                
+            }       
+                    
         }
     };
-}
-        
+}  
 generate_enum!([
         AAPL,
         JNJ

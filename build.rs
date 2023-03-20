@@ -4,6 +4,8 @@ use std::env;
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
+use std::{error::Error, io, process};
+
 
 fn main() {
     let symbols = "
@@ -18,12 +20,36 @@ fn main() {
         Columbia_B
     ]
     ";
+    // todo: make this load from csv?
+    let account_ips = "
+    [
+        \"172.16.123.1\".parse::<Ipv4Addr>().unwrap(),
+        \"172.16.123.2\".parse::<Ipv4Addr>().unwrap(),
+    ]
+    ";
     // let out_dir = env::var("OUT_DIR").unwrap();
-    let out_dir = "/Users/caidan/projects/orderbook/src";
+    let out_dir = "/Users/caidan/projects/exchange_simulator/matching-engine/src";
     let dest_path = Path::new(&out_dir).join("macro_calls.rs");
     let mut f = File::create(&dest_path).unwrap();
     let content = format!(
         "
+use std::collections::HashMap;
+use std::net::Ipv4Addr;
+pub type TraderIp = std::net::Ipv4Addr;
+use std::io;
+
+
+// TODO: clean up this mess!!!!!
+pub fn ip_to_id (ip: Ipv4Addr) -> Result<crate::macro_calls::TraderId, io::Error> {{
+    if (ip == Ipv4Addr::new(172,16,123,1)) {{
+        return Ok(crate::macro_calls::TraderId::Columbia_A);
+    }} else if (ip == Ipv4Addr::new(172,16,123,2)){{
+        return Ok(crate::macro_calls::TraderId::Columbia_B);
+    }} else {{
+        panic!(\"not a known ip\");
+    }}
+}}
+
 use core::fmt::Debug;
 use serde::{{Deserialize, Serialize}};
 use std::sync::Mutex;
@@ -31,6 +57,7 @@ use uuid::Uuid;
 use crate::accounts::TraderAccount;
 use crate::orderbook::OrderBook;
 // use crate::orderbook::TraderId;
+// hello
 
 macro_rules! generate_enum {{
     ([$($name:ident),*]) => {{
@@ -46,7 +73,7 @@ macro_rules! generate_accounts_enum {{
         #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
         pub enum TraderId {{
             $($name, )*
-        }}
+        }}       
     }};
 }}
 
@@ -98,16 +125,18 @@ macro_rules! generate_global_state {{
                 match account_id {{
                     $(TraderId::$account_id => {{&self.$account_id}}, )*
                 }}
-            }}                
+            }}       
+                    
         }}
     }};
-}}
-        
+}}  
 generate_enum!({});
 generate_account_balances_struct!({});
 generate_global_state!({}, {});
-generate_accounts_enum!({});",
-        symbols.trim(), symbols.trim(), symbols.trim(), account_ids.trim(), account_ids.trim()
+generate_accounts_enum!({});
+
+",
+        symbols.trim(), symbols.trim(), symbols.trim(), account_ids.trim(),  account_ids.trim(),
     );
     let bytes = Bytes::from(content.trim());
     f.write_all(&bytes).unwrap();

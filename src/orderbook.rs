@@ -1,5 +1,9 @@
 use crate::accounts;
 use crate::macro_calls;
+use queues;
+use queues::IsQueue;
+
+use actix::prelude::*;
 
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use std::sync::Mutex;
@@ -102,15 +106,18 @@ pub struct CancelRequest {
     side: OrderType,
 }
 
-#[derive(Debug)]
-struct Fill {
+#[derive(Debug, Clone)]
+pub struct Fill {
     /// Struct representing an order fill event, used to update credit limits, communicate orderbook status etc.
-    sell_trader_id: TraderId,
-    buy_trader_id: TraderId,
-    amount: usize,
-    price: Price,
-    symbol: macro_calls::TickerSymbol,
-    trade_time: u8,
+    pub sell_trader_id: TraderId,
+    pub buy_trader_id: TraderId,
+    pub amount: usize,
+    pub price: Price,
+    pub symbol: macro_calls::TickerSymbol,
+    pub trade_time: u8,
+}
+impl Message for Fill {
+    type Result = (); 
 }
 impl OrderBook {
     fn add_order_to_book(&mut self, new_order_request: OrderRequest) -> Uuid {
@@ -361,11 +368,16 @@ impl OrderBook {
         
         *buy_trader.lock().unwrap().asset_balances.index_ref(&fill_event.symbol).lock().unwrap() += fill_event.amount;
         buy_trader.lock().unwrap().cents_balance -= cent_value;
+        // slow cloning!
+        buy_trader.lock().unwrap().push_fill(fill_event.clone());        
+        
         // buy_trader.lock().unwrap().net_cents_balance += cent_value;
         
         *sell_trader.lock().unwrap().asset_balances.index_ref(&fill_event.symbol).lock().unwrap() -= fill_event.amount;
         sell_trader.lock().unwrap().cents_balance += cent_value;
         sell_trader.lock().unwrap().net_cents_balance += cent_value;
+        // todo: handle error on adding fill to message_backup
+        sell_trader.lock().unwrap().push_fill(fill_event.clone());
 
         debug!(
             "{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",

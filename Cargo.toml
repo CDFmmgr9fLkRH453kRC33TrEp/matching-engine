@@ -32,6 +32,7 @@ tokio = { version = "1", features = ["full"] }
 
 # accounts
 enum-map = "2.4.2"
+queues = "1.0.2"
 
 # macro help
 strum = "0.24.1"
