@@ -1,2 +1,3 @@
 [env]
-RUST_LOG="trace"
+RUST_LOG = { value = "info", force = true }
+CARGO_LOG = { value = "info", force = true }

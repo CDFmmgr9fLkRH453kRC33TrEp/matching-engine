@@ -3,6 +3,8 @@ use crate::macro_calls;
 use queues;
 use queues::IsQueue;
 
+use std::sync::Arc;
+
 use actix::prelude::*;
 
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
@@ -241,14 +243,14 @@ impl OrderBook {
                     
                     let buy_trader = accounts_data.index_ref(buy_trader_id);
                     let sell_trader = accounts_data.index_ref(sell_order.trader_id);
-                    self.handle_fill_event(buy_trader, sell_trader, Fill {
+                    self.handle_fill_event(buy_trader, sell_trader, Arc::new(Fill {
                         sell_trader_id: sell_order.trader_id,
                         buy_trader_id: buy_trader_id,
                         symbol: self.symbol,
                         amount: amount_to_be_traded,
                         price: trade_price,
                         trade_time: 1,
-                    });
+                    }));
 
                     sell_order.amount -= amount_to_be_traded;
                     self.buy_side_limit_levels[current_price_level].orders[0].amount -=
@@ -317,14 +319,14 @@ impl OrderBook {
                     // could turn this into an associated function which does not need a reference to the orderbook, but I think its fine.
                     let buy_trader = accounts_data.index_ref(buy_order.trader_id);
                     let sell_trader = accounts_data.index_ref(sell_trader_id);
-                    self.handle_fill_event(buy_trader, sell_trader, Fill {
+                    self.handle_fill_event(buy_trader, sell_trader, Arc::new(Fill {
                         buy_trader_id: buy_order.trader_id,
                         sell_trader_id: sell_trader_id,
                         symbol: self.symbol,
                         amount: amount_to_be_traded,
                         price: trade_price,
                         trade_time: 1,
-                    });
+                    }));
 
                     // TODO: create "sell" function that can handle calls to allocate credit etc.
                     // also removing from the front seems pretty inefficient,
@@ -362,14 +364,19 @@ impl OrderBook {
         }
     }
 
-    fn handle_fill_event(&self, buy_trader: &Mutex<accounts::TraderAccount>, sell_trader: &Mutex<accounts::TraderAccount>, fill_event: Fill) {
+    fn handle_fill_event(&self, buy_trader: &Mutex<accounts::TraderAccount>, sell_trader: &Mutex<accounts::TraderAccount>, fill_event: Arc<Fill>) {
+        // todo: this should acquire the lock for the the duration of the whole function (i.e. should take lock as argument instead of mutex)
+        // should take rc of fill instead of fill itself, will clone etc. from rc.
         
         let cent_value = &fill_event.amount * &fill_event.price;            
         
         *buy_trader.lock().unwrap().asset_balances.index_ref(&fill_event.symbol).lock().unwrap() += fill_event.amount;
         buy_trader.lock().unwrap().cents_balance -= cent_value;
-        // slow cloning!
-        buy_trader.lock().unwrap().push_fill(fill_event.clone());        
+        // only cloning arc, so not slow!
+        buy_trader.lock().unwrap().push_fill(fill_event.clone());  
+        // should send fill info to everyone?
+        // would need to iterate over all traders and clone once per. 
+        // maybe clone Rc's? would then need to clone message inside Rc when sending out. 
         
         // buy_trader.lock().unwrap().net_cents_balance += cent_value;
         
@@ -387,10 +394,11 @@ impl OrderBook {
             fill_event.symbol,
             fill_event.price
         );
+
     }
 
     pub fn print_book_state(&self) {
-        println!("Orderbook for {:?}", self.symbol);
+        debug!("Orderbook for {:?}", self.symbol);
         for price_level_index in 0..self.buy_side_limit_levels.len() {
             let mut outstanding_sell_orders: usize = 0;
             let mut outstanding_buy_orders: usize = 0;
@@ -407,7 +415,7 @@ impl OrderBook {
             for _ in 0..outstanding_buy_orders {
                 string_out = string_out + "B"
             }
-            println!(
+            debug!(
                 "${}: {}",
                 self.buy_side_limit_levels[price_level_index].price, string_out
             );

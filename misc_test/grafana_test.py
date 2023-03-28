@@ -13,7 +13,6 @@ async def echo(websocket):
     await websocket.send(json.dump(jsonreq))
     # async for message in websocket:
         
-
 async def main():
     async with websockets.serve(echo, "127.0.0.1", 8080):
         await asyncio.Future()  # run forever

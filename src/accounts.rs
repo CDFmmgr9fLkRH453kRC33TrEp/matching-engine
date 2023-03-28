@@ -5,6 +5,7 @@ use crate::websockets;
 use macro_calls::AssetBalances;
 use actix::Addr;
 use queues::IsQueue;
+use std::sync::Arc;
 
 use queues;
 pub struct TraderAccount {
@@ -19,14 +20,14 @@ pub struct TraderAccount {
     //  if no connection, add to end of queue
     // }
     // pub fn register connection {
-    //  on connection, make sure no other connections exist
+    //  on connection, make sure xno other connections exist
     //  register actix actor and update addr
     //  send out all messages in fill event queue
     // }
     // in cents, equal to total of owned cents minus total value of outstanding buy orders
 
     // consider changing to Buffer instead of Queue to know size
-    pub message_backup: queues::Queue<orderbook::Fill>,
+    pub message_backup: queues::Queue<Arc<orderbook::Fill>>,
 
     pub net_cents_balance: usize,
     // asset_balances, net_asset_balances updated on fill event, and so should be current
@@ -37,14 +38,20 @@ pub struct TraderAccount {
 }
 
 impl TraderAccount {
-    pub fn push_fill(&mut self, fill_event: orderbook::Fill) {
+    pub fn push_fill(&mut self, fill_event: Arc<orderbook::Fill>) {
         // maybe spawn async thread?
         match &self.current_actor {
             None => {
                 self.message_backup.add(fill_event).unwrap();
             },
             Some(addr) =>{
-                addr.try_send(fill_event).unwrap();
+                // todo: slow clone, switch paths?
+                // todo: switch to cloning RC so not so expensive.
+                // should only be unwrapped when sent. 
+                match addr.try_send(fill_event.clone()) {
+                    Ok(_) => {()},
+                    Err(E) => {self.message_backup.add(fill_event).unwrap(); ()}
+                }
             },
         }
     }
@@ -56,7 +63,7 @@ pub fn quickstart_trader_account (trader_id: macro_calls::TraderId, cents_balanc
         trader_ip: trader_ip,
         cents_balance: cents_balance,
         net_cents_balance: cents_balance,
-        message_backup: queues::Queue::<orderbook::Fill>::new(),
+        message_backup: queues::Queue::<Arc<orderbook::Fill>>::new(),
         // asset_balances, net_asset_balances updated on fill event, and so should be current
         // in asset lots
         asset_balances: macro_calls::AssetBalances::new(),

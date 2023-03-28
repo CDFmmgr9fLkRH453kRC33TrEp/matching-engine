@@ -4,7 +4,7 @@
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
 <script>
-    ws = new WebSocket("ws://localhost:8080")
+    ws = new WebSocket("ws://172.16.123.0:4000/orders/ws")
     var request_data_interval
     ws.onopen = function()
     {
@@ -18,14 +18,15 @@
     ws.onmessage = function (evt) 
     { 
         var received_msg = evt.data;
+        console.log("received_msg:",received_msg);
+        // data = JSON.parse(evt.data);
 
-        data = JSON.parse(evt.data);
-        var my_plot = {
-            x: data.x, 
-            y: data.y, 
-            type: 'bar',
-        };
-        Plotly.newPlot('sine-graph', [my_plot]);
+        // var my_plot = {
+        //     x: data.x, 
+        //     y: data.y, 
+        //     type: 'bar',
+        // };
+        // Plotly.newPlot('sine-graph', [my_plot]);
     };
 		
     ws.onclose = function()

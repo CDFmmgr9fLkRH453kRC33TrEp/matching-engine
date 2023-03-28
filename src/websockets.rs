@@ -2,16 +2,21 @@ use actix::prelude::*;
 use actix_web::web::Bytes;
 use actix_web::Error;
 use actix_web_actors::ws;
+use log::info;
 use plotters::coord::types;
+use std::env;
 use std::f32::consts::E;
 use std::fmt::format;
 use std::time::{Duration, Instant};
+use std::sync::Arc;
+
+
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 use crate::orderbook::Fill;
-use crate::websockets::ws::CloseReason;
 use crate::websockets::ws::CloseCode::Policy;
+use crate::websockets::ws::CloseReason;
 use actix_web::{get, post, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
 use std::sync::Mutex;
 extern crate env_logger;
@@ -19,10 +24,6 @@ extern crate env_logger;
 use queues::IsQueue;
 
 use actix::prelude::*;
-
-
-
-
 
 use std::any::type_name;
 
@@ -34,13 +35,13 @@ use std::any::type_name;
 pub use crate::accounts::TraderAccount;
 // pub use crate::orderbook::TickerSymbol;
 pub use crate::accounts::quickstart_trader_account;
-use crate::{macro_calls, orderbook};
 use crate::macro_calls::TraderIp;
 pub use crate::orderbook::quickstart_order_book;
 pub use crate::orderbook::CancelRequest;
 pub use crate::orderbook::OrderBook;
 pub use crate::orderbook::OrderRequest;
 pub use crate::orderbook::OrderType;
+use crate::{macro_calls, orderbook};
 
 use crate::macro_calls::AssetBalances;
 use crate::macro_calls::TickerSymbol;
@@ -58,7 +59,7 @@ fn add_order(
     data: &web::Data<crate::macro_calls::GlobalOrderBookState>,
     accounts_data: &web::Data<crate::macro_calls::GlobalAccountState>,
 ) -> String {
-    println!("Add Order Triggered!");
+    info!("Add Order Triggered!");
     let order_request_inner = order_request;
     let symbol = &order_request_inner.symbol;
     // Todo: refactor into match statement, put into actix guard?
@@ -71,20 +72,22 @@ fn add_order(
             .index_ref(order_request_inner.trader_id)
             .lock()
             .unwrap()
-            .net_cents_balance < cent_value)
+            .net_cents_balance
+            < cent_value)
         {
             return String::from("Error Placing Order: The total value of order is greater than current account balance");
         }
         accounts_data
             .index_ref(order_request_inner.trader_id)
             .lock()
-            .unwrap().net_cents_balance -= order_request_inner.price * order_request_inner.amount;        
+            .unwrap()
+            .net_cents_balance -= order_request_inner.price * order_request_inner.amount;
     };
 
     if (order_request_inner.order_type == crate::orderbook::OrderType::Sell) {
         // ISSUE: This should decrement cents_balance to avoid racing to place two orders before updating cents_balance
         // check if current cash balance - outstanding orders supports order
-        // nevermind, as long as I acquire and hold a lock during the entire order placement attempt, it should be safe        
+        // nevermind, as long as I acquire and hold a lock during the entire order placement attempt, it should be safe
         if (*accounts_data
             .index_ref(order_request_inner.trader_id)
             .lock()
@@ -102,10 +105,14 @@ fn add_order(
         *accounts_data
             .index_ref(order_request_inner.trader_id)
             .lock()
-            .unwrap().net_asset_balances.index_ref(symbol).lock().unwrap() += order_request_inner.amount;  
+            .unwrap()
+            .net_asset_balances
+            .index_ref(symbol)
+            .lock()
+            .unwrap() += order_request_inner.amount;
     };
-    
-    println!(
+
+    debug!(
         "Account has {:?} lots of {:?}",
         &accounts_data
             .index_ref(order_request_inner.trader_id)
@@ -117,13 +124,13 @@ fn add_order(
             .unwrap(),
         symbol
     );
-    println!(
+    debug!(
         "Account has {:?} cents",
         &accounts_data
             .index_ref(order_request_inner.trader_id)
             .lock()
             .unwrap()
-            .cents_balance            
+            .cents_balance
     );
 
     let orderbook = data.index_ref(symbol);
@@ -164,7 +171,7 @@ async fn cancel_order(
 }
 
 pub struct MyWebSocketActor {
-    // includes 
+    // includes
     connection_ip: TraderIp,
     hb: Instant,
     global_account_state: web::Data<crate::macro_calls::GlobalAccountState>,
@@ -210,6 +217,7 @@ impl MyWebSocketActor {
                 ctx.stop();
                 return;
             }
+            debug!("sent ping message");
             ctx.ping(b"");
         });
     }
@@ -221,15 +229,23 @@ pub async fn websocket(
     orderbook_data: web::Data<crate::macro_calls::GlobalOrderBookState>,
     accounts_data: web::Data<crate::macro_calls::GlobalAccountState>,
 ) -> Result<HttpResponse, Error> {
-    println!("host: {}", req.connection_info().host());
-    println!("peer_addr: {}", req.connection_info().peer_addr().unwrap());
-    println!("realip_remote_addr: {}", req.connection_info().realip_remote_addr().unwrap());
-    println!("NEW CONNECTION");    
+    log::info!(
+        "New websocket connection with peer_addr {}",
+        req.connection_info().peer_addr().unwrap()
+    );
+    // log::info!("host: {}", req.connection_info().host());
+    // log::info!("realip_remote_addr: {}", req.connection_info().realip_remote_addr().unwrap());
     // need to somehow check if this trader all ready has an active connection
     // if not, all outstanding messages will be sent on the creation of the new websocket
     ws::start(
         MyWebSocketActor {
-            connection_ip: req.connection_info().realip_remote_addr().unwrap().clone().parse().unwrap(), 
+            connection_ip: req
+                .connection_info()
+                .realip_remote_addr()
+                .unwrap()
+                .clone()
+                .parse()
+                .unwrap(),
             hb: Instant::now(),
             global_account_state: accounts_data.clone(),
             global_orderbook_state: orderbook_data.clone(),
@@ -248,20 +264,20 @@ impl Actor for MyWebSocketActor {
     }
 }
 
-
 /// Define handler for `Ping` message
-impl Handler<orderbook::Fill> for MyWebSocketActor {
+impl Handler<Arc<orderbook::Fill>> for MyWebSocketActor {
     type Result = ();
 
-    fn handle(&mut self, msg: orderbook::Fill, ctx: &mut Self::Context)  {
-        println!("Message received");
+    fn handle(&mut self, msg: Arc<orderbook::Fill>, ctx: &mut Self::Context) {
         let fill_event = msg;
-        ctx.text(format!("{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
-        fill_event.sell_trader_id,
-        fill_event.buy_trader_id,
-        fill_event.amount,
-        fill_event.symbol,
-        fill_event.price));
+        ctx.text(format!(
+            "{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
+            fill_event.sell_trader_id,
+            fill_event.buy_trader_id,
+            fill_event.amount,
+            fill_event.symbol,
+            fill_event.price
+        ));
     }
 }
 
@@ -272,50 +288,88 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
 
     fn finished(&mut self, ctx: &mut Self::Context) {
         let account_id = crate::macro_calls::ip_to_id(self.connection_ip).unwrap();
-        let curr_actor = &mut self.global_account_state.index_ref(account_id).lock().unwrap().current_actor;
+        let curr_actor = &mut self
+            .global_account_state
+            .index_ref(account_id)
+            .lock()
+            .unwrap()
+            .current_actor;
         match curr_actor {
             Some(x) => {
                 *curr_actor = None;
-            },
-            None => println!("Error, no websocket connected?")
+            }
+            None => error!("Error, no websocket connected?"),
         }
-        println!("Connection Ended.")
+        info!(
+            "Websocket connection ended (id: {:?}, peer_ip:{}).",
+            account_id, self.connection_ip
+        );
     }
 
-    fn started(&mut self, ctx: &mut Self::Context) {        
-        
+    fn started(&mut self, ctx: &mut Self::Context) {
         let connection_ip = self.connection_ip;
-        let account_id = crate::macro_calls::ip_to_id(connection_ip).unwrap();
-        println!("{:?}", account_id);
+
+        if (connection_ip
+            == env::var("GRAFANAIP")
+                .expect("$GRAFANAIP is not set")
+                .parse::<TraderIp>()
+                .unwrap())
         {
-        let curr_actor = &mut self.global_account_state.index_ref(account_id).lock().unwrap().current_actor;
-        match curr_actor {
-            Some(x) => {
-                println!("Error, you already have a websocket connected");
-                ctx.close(Some(CloseReason{code:Policy, description:Some(format!("you already have a websocket connected."))}))
-            },
-            None => *curr_actor = Some(ctx.address())
-        }
-        println!("{:?}", curr_actor);
-        }   
-        let message_queue = &mut self.global_account_state.index_ref(account_id).lock().unwrap().message_backup;
-        
-        // ctx.text("new message");
-        while (message_queue.size() != 0) {
-            println!("Message #{:?}", message_queue.size());
-            let fill_event = message_queue.remove().unwrap();
-            // println!("{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
-            // fill_event.sell_trader_id,
-            // fill_event.buy_trader_id,
-            // fill_event.amount,
-            // fill_event.symbol,
-            // fill_event.price);
-            ctx.text(format!("{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
-            fill_event.sell_trader_id,
-            fill_event.buy_trader_id,
-            fill_event.amount,
-            fill_event.symbol,
-            fill_event.price));
+            info!("New grafana connection");
+            let dur = env::var("GRAFANAPOLLDUR")
+                .expect("$GRAFANAPOLLDUR is not set")
+                .parse::<u64>()
+                .unwrap();
+            ctx.run_interval(Duration::new(dur, 0), |act, ctx| {
+                ctx.text("hello");
+            });
+        } else {
+            let account_id = crate::macro_calls::ip_to_id(connection_ip).unwrap();
+            debug!("Trader with id {:?} connected.", account_id);
+            {
+                let curr_actor = &mut self
+                    .global_account_state
+                    .index_ref(account_id)
+                    .lock()
+                    .unwrap()
+                    .current_actor;
+                match curr_actor {
+                    Some(x) => {
+                        error!("Trader_id already has websocket connected");
+                        ctx.close(Some(CloseReason {
+                            code: Policy,
+                            description: Some(format!("you already have a websocket connected.")),
+                        }))
+                    }
+                    None => *curr_actor = Some(ctx.address()),
+                }
+            }
+            let message_queue = &mut self
+                .global_account_state
+                .index_ref(account_id)
+                .lock()
+                .unwrap()
+                .message_backup;
+
+            // ctx.text("new message");
+            while (message_queue.size() != 0) {
+                // println!("Message #{:?}", message_queue.size());
+                let fill_event = message_queue.remove().unwrap();
+                // println!("{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
+                // fill_event.sell_trader_id,
+                // fill_event.buy_trader_id,
+                // fill_event.amount,
+                // fill_event.symbol,
+                // fill_event.price);
+                ctx.text(format!(
+                    "{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
+                    fill_event.sell_trader_id,
+                    fill_event.buy_trader_id,
+                    fill_event.amount,
+                    fill_event.symbol,
+                    fill_event.price
+                ));
+            }
         }
     }
     // finished() function removes the trader account's actor addr
@@ -325,42 +379,53 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
     // it should respond with a pong. These two messages are necessary
     // for the `hb()` function to maintain the connection status.
     fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
-        match msg {
-            Ok(ws::Message::Text(msg)) => {
-                // handle incoming JSON as usual.
-                let d = &msg.to_string();
-                let t: OrderRequest = serde_json::from_str(d).unwrap();
+        if self.connection_ip != env::var("GRAFANAIP").expect("GRAFANAIP not set").parse::<TraderIp>().unwrap() {
+            match msg {
+                Ok(ws::Message::Text(msg)) => {
+                    // handle incoming JSON as usual.
+                    let d = &msg.to_string();
+                    let t: OrderRequest = serde_json::from_str(d).unwrap();
 
-                let connection_ip = self.connection_ip;
-                let ip_needed = self.global_account_state.index_ref(t.trader_id).lock().unwrap().trader_ip;
-                if (connection_ip != ip_needed) {
-                    println!("connection_ip: {}", connection_ip);
-                    println!("ip_needed: {}", ip_needed);
-                    ctx.text("invalid ip for provided trader id.")
-                } else {
-                    let res = add_order(t, &self.global_orderbook_state, &self.global_account_state);
-                    println!("{}", res);
-                    // println!("{:?}", serde_json::to_string_pretty(&t));
-                    ctx.text(msg)
+                    let connection_ip = self.connection_ip;
+                    let ip_needed = self
+                        .global_account_state
+                        .index_ref(t.trader_id)
+                        .lock()
+                        .unwrap()
+                        .trader_ip;
+                    if (connection_ip != ip_needed) {
+                        warn!("Invalid ip for provided trader_id: {}", connection_ip);
+                        warn!("connection_ip: {}", connection_ip);
+                        warn!("ip_needed: {}", ip_needed);
+                        ctx.text("invalid ip for provided trader id.")
+                    } else {
+                        let res =
+                            add_order(t, &self.global_orderbook_state, &self.global_account_state);
+                        // println!("{}", res);
+                        // println!("{:?}", serde_json::to_string_pretty(&t));
+                        ctx.text(msg)
+                    }
                 }
-            }
 
-            // Ping/Pong will be used to make sure the connection is still alive
-            Ok(ws::Message::Ping(msg)) => {
-                self.hb = Instant::now();
-                ctx.pong(&msg);
+                // Ping/Pong will be used to make sure the connection is still alive
+                Ok(ws::Message::Ping(msg)) => {
+                    self.hb = Instant::now();
+                    info!("Ping");
+                    ctx.pong(&msg);
+                }
+                Ok(ws::Message::Pong(_)) => {
+                    info!("Pong");
+                    self.hb = Instant::now();
+                }
+                // Text will echo any text received back to the client (for now)
+                // Ok(ws::Message::Text(text)) => ctx.text(text),
+                // Close will close the socket
+                Ok(ws::Message::Close(reason)) => {
+                    ctx.close(reason);
+                    ctx.stop();
+                }
+                _ => ctx.stop(),
             }
-            Ok(ws::Message::Pong(_)) => {
-                self.hb = Instant::now();
-            }
-            // Text will echo any text received back to the client (for now)
-            // Ok(ws::Message::Text(text)) => ctx.text(text),
-            // Close will close the socket
-            Ok(ws::Message::Close(reason)) => {
-                ctx.close(reason);
-                ctx.stop();
-            }
-            _ => ctx.stop(),
         }
     }
 }
