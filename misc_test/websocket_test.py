@@ -3,6 +3,10 @@ import websocket
 import json
 import argparse
 
+# NEED TO SET UP LOOPBACK FOR TESTING
+# sudo ifconfig lo0 alias 172.16.123.1 (columbia a)
+# sudo ifconfig lo0 alias 172.16.123.2 (columbia b)
+
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--ip', type=str, required=True)
@@ -15,9 +19,9 @@ ws = websocket.WebSocket()
 ws.connect(f"ws://{args.ip}:4000/orders/ws")
 
 jsonreq = {
-            'OrderType': "Sell",
-            'Amount': 3,
-            'Price': 3,
+            'OrderType': "Buy",
+            'Amount': 1,
+            'Price': 5,
             'Symbol': "AAPL",
             'TraderId': f"{args.id}",            
         }

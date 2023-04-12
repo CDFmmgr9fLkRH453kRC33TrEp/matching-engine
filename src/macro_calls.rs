@@ -2,6 +2,8 @@ use std::collections::HashMap;
 use std::net::Ipv4Addr;
 pub type TraderIp = std::net::Ipv4Addr;
 use std::io;
+use actix::Addr;
+use crate::websockets::MyWebSocketActor;
 
 
 // TODO: clean up this mess!!!!!

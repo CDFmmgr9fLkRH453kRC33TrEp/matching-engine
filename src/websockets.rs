@@ -1,3 +1,10 @@
+// todo: separate websocket handling actors from actors handling state/fill message queueing?
+// i.e. actor handling state subscribes to fill messages, then checks if there is a websocket actor associated with the account and then sends fill message to them 
+// actors handling state have static lifetime and are spawned when  program starts
+// actors handling websockets are spawned when new connection occurs, and end when connection is dropped. 
+// otherwise will add to fill message backlog. 
+
+
 use actix::prelude::*;
 use actix_web::web::Bytes;
 use actix_web::Error;
@@ -7,10 +14,12 @@ use plotters::coord::types;
 use std::env;
 use std::f32::consts::E;
 use std::fmt::format;
+use std::net::Ipv4Addr;
 use std::time::{Duration, Instant};
 use std::sync::Arc;
 
 
+use actix_broker::{BrokerSubscribe, BrokerIssue, SystemBroker, ArbiterBroker, Broker};
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -83,11 +92,10 @@ fn add_order(
             .unwrap()
             .net_cents_balance -= order_request_inner.price * order_request_inner.amount;
     };
-
     if (order_request_inner.order_type == crate::orderbook::OrderType::Sell) {
         // ISSUE: This should decrement cents_balance to avoid racing to place two orders before updating cents_balance
         // check if current cash balance - outstanding orders supports order
-        // nevermind, as long as I acquire and hold a lock during the entire order placement attempt, it should be safe
+        // nevermind, as long as I acquire and hold a lock during the entire order placement attempt, it should be safe       
         if (*accounts_data
             .index_ref(order_request_inner.trader_id)
             .lock()
@@ -98,10 +106,12 @@ fn add_order(
             .unwrap()
             < order_request_inner.amount)
         {
+            info!("E");
             return String::from(
                 "Error Placing Order: The total amount of this trade would take your account short",
             );
         }
+        
         *accounts_data
             .index_ref(order_request_inner.trader_id)
             .lock()
@@ -109,7 +119,7 @@ fn add_order(
             .net_asset_balances
             .index_ref(symbol)
             .lock()
-            .unwrap() += order_request_inner.amount;
+            .unwrap() -= order_request_inner.amount;
     };
 
     debug!(
@@ -133,17 +143,18 @@ fn add_order(
             .cents_balance
     );
 
-    let orderbook = data.index_ref(symbol);
+    // let orderbook = data.index_ref(symbol);
     // let jnj_orderbook = data.index_ref(&crate::macro_calls::TickerSymbol::JNJ);
     // jnj_orderbook.lock().unwrap().print_book_state();
     // ISSUE: need to borrow accounts as mutable without knowing which ones will be needed to be borrowed
     // maybe pass in immutable reference to entire account state, and only acquire the locks for the mutex's that it turns out we need
     let order_id = data
-        .index_ref(symbol)
+        .index_ref(&symbol.clone())
         .lock()
         .unwrap()
-        .handle_incoming_order_request(order_request_inner, accounts_data);
-    orderbook.lock().unwrap().print_book_state();
+        .handle_incoming_order_request(order_request_inner.clone(), accounts_data);
+    let book_state = data.index_ref(symbol).lock().unwrap();
+    
     match order_id {
         Some(inner) => return inner.hyphenated().to_string(),
         None => String::from("Filled"),
@@ -217,7 +228,7 @@ impl MyWebSocketActor {
                 ctx.stop();
                 return;
             }
-            debug!("sent ping message");
+            // debug!("sent ping message");
             ctx.ping(b"");
         });
     }
@@ -229,14 +240,18 @@ pub async fn websocket(
     orderbook_data: web::Data<crate::macro_calls::GlobalOrderBookState>,
     accounts_data: web::Data<crate::macro_calls::GlobalAccountState>,
 ) -> Result<HttpResponse, Error> {
+    let conninfo = req.connection_info().clone();
     log::info!(
-        "New websocket connection with peer_addr {}",
-        req.connection_info().peer_addr().unwrap()
+        "New websocket connection with peer_addr {:?}",
+        conninfo.peer_addr()
     );
-    // log::info!("host: {}", req.connection_info().host());
-    // log::info!("realip_remote_addr: {}", req.connection_info().realip_remote_addr().unwrap());
-    // need to somehow check if this trader all ready has an active connection
-    // if not, all outstanding messages will be sent on the creation of the new websocket
+
+
+
+    // todo: change ws:start to be adding a stream to existing actor. 
+
+    let id = macro_calls::ip_to_id(conninfo.peer_addr().unwrap().parse().unwrap()).unwrap();
+
     ws::start(
         MyWebSocketActor {
             connection_ip: req
@@ -260,11 +275,13 @@ impl Actor for MyWebSocketActor {
 
     // Start the heartbeat process for this connection
     fn started(&mut self, ctx: &mut Self::Context) {
+        self.subscribe_system_async::<orderbook::OrderBook>(ctx);
+        debug!("Subscribed");
         self.hb(ctx);
     }
 }
 
-/// Define handler for `Ping` message
+/// Define handler for `Fill` message
 impl Handler<Arc<orderbook::Fill>> for MyWebSocketActor {
     type Result = ();
 
@@ -277,6 +294,20 @@ impl Handler<Arc<orderbook::Fill>> for MyWebSocketActor {
             fill_event.amount,
             fill_event.symbol,
             fill_event.price
+        ));
+    }
+}
+
+/// Define handler for `OrderBookUpdate` message
+impl Handler<orderbook::OrderBook> for MyWebSocketActor {
+    type Result = ();
+
+    fn handle(&mut self, msg: orderbook::OrderBook, ctx: &mut Self::Context) {
+        debug!("Orderbook Message Received");
+        // msg.print_book_state();
+        ctx.text(format!(
+            "{:?}",
+            &msg.get_book_state()
         ));
     }
 }
@@ -304,9 +335,12 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
             "Websocket connection ended (id: {:?}, peer_ip:{}).",
             account_id, self.connection_ip
         );
+        ctx.stop()
     }
 
+
     fn started(&mut self, ctx: &mut Self::Context) {
+        // Broker::<SystemBroker>::issue_async(self.global_orderbook_state);
         let connection_ip = self.connection_ip;
 
         if (connection_ip
@@ -402,8 +436,12 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                         let res =
                             add_order(t, &self.global_orderbook_state, &self.global_account_state);
                         // println!("{}", res);
+                        let msg = self.global_orderbook_state.index_ref(&t.symbol).lock().unwrap().to_owned();
+                        debug!("Issuing Async Msg");
+                        Broker::<SystemBroker>::issue_async(msg);
+                        debug!("Issued Async Msg");
                         // println!("{:?}", serde_json::to_string_pretty(&t));
-                        ctx.text(msg)
+                        ctx.text(res)
                     }
                 }
 
@@ -414,7 +452,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                     ctx.pong(&msg);
                 }
                 Ok(ws::Message::Pong(_)) => {
-                    info!("Pong");
+                    // info!("Pong");
                     self.hb = Instant::now();
                 }
                 // Text will echo any text received back to the client (for now)

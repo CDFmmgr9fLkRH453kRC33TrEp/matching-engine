@@ -2,7 +2,6 @@ use crate::accounts;
 use crate::macro_calls;
 use queues;
 use queues::IsQueue;
-
 use std::sync::Arc;
 
 use actix::prelude::*;
@@ -52,7 +51,8 @@ pub enum OrderType {
 //     }
 // }
 
-#[derive(Debug)]
+#[derive(Debug, Message, Clone)]
+#[rtype(result = "()")]
 pub struct OrderBook {
     /// Struct representing a double sided order book for a single product.
     // todo: add offset to allow for non 0 min prices
@@ -66,14 +66,14 @@ pub struct OrderBook {
 }
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct LimitLevel {
     /// Struct representing one price level in the orderbook, containing a vector of Orders at this price
     price: Price,
     orders: Vec<Order>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 #[serde(rename_all = "PascalCase")]
 pub struct OrderRequest {
     /// Struct representing an incoming request which has not yet been added to the orderbook
@@ -84,7 +84,7 @@ pub struct OrderRequest {
     pub symbol: macro_calls::TickerSymbol,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Order {
     /// Struct representing an existing order in the order book
     pub order_id: Uuid,
@@ -210,15 +210,16 @@ impl OrderBook {
         match new_order_request.order_type {
             OrderType::Buy => self.handle_incoming_buy(new_order_request, accounts_data),
             OrderType::Sell => self.handle_incoming_sell(new_order_request, accounts_data),
-        }
+        }        
     }
     fn handle_incoming_sell(&mut self, mut sell_order: OrderRequest, accounts_data: &web::Data<macro_calls::GlobalAccountState>) -> Option<Uuid> {
         debug!(
             "Incoming sell, current high buy {:?}",
             self.current_high_buy_price
         );
+        
         if sell_order.price <= self.current_high_buy_price {
-            // println!("Cross");
+            // println!("Cross");            
             // println!("amount to be filled remaining: {:?}", sell_order.amount);
             let mut current_price_level = self.current_high_buy_price;
             while (sell_order.amount > 0) & (current_price_level >= sell_order.price) {
@@ -279,14 +280,19 @@ impl OrderBook {
                 }
                 current_price_level -= 1;
             }
-            self.current_high_buy_price = current_price_level;
+            self.current_high_buy_price = current_price_level;            
         }
-
+        // will be changed to beam out book state to subscribers
+        
         if sell_order.amount > 0 {
-            return Some(self.add_order_to_book(sell_order));
+            let resting_order_id = self.add_order_to_book(sell_order);
+            self.print_book_state();
+            return Some(resting_order_id);
         } else {
+            self.print_book_state();
             return None;
         }
+
     }
     fn handle_incoming_buy(&mut self, mut buy_order: OrderRequest, accounts_data: &web::Data<macro_calls::GlobalAccountState>) -> Option<Uuid> {
         debug!(
@@ -356,17 +362,22 @@ impl OrderBook {
                 current_price_level += 1;
             }
             self.current_low_sell_price = current_price_level;
+         
         }
+        // will be changed to beam out book state to subscribers
+        
         if buy_order.amount > 0 {
-            return Some(self.add_order_to_book(buy_order));
+            let resting_order_id = self.add_order_to_book(buy_order);
+            self.print_book_state();
+            return Some(resting_order_id);            
         } else {
+            self.print_book_state();
             return None;
         }
     }
 
     fn handle_fill_event(&self, buy_trader: &Mutex<accounts::TraderAccount>, sell_trader: &Mutex<accounts::TraderAccount>, fill_event: Arc<Fill>) {
         // todo: this should acquire the lock for the the duration of the whole function (i.e. should take lock as argument instead of mutex)
-        // should take rc of fill instead of fill itself, will clone etc. from rc.
         
         let cent_value = &fill_event.amount * &fill_event.price;            
         
@@ -374,16 +385,17 @@ impl OrderBook {
         buy_trader.lock().unwrap().cents_balance -= cent_value;
         // only cloning arc, so not slow!
         buy_trader.lock().unwrap().push_fill(fill_event.clone());  
+                
         // should send fill info to everyone?
-        // would need to iterate over all traders and clone once per. 
-        // maybe clone Rc's? would then need to clone message inside Rc when sending out. 
+        // would need lock on every account. Should send messages instead. 
+        // maybe use subscribers?
+        // actix broker
         
-        // buy_trader.lock().unwrap().net_cents_balance += cent_value;
+        // would need to iterate over all traders and clone once per. 
         
         *sell_trader.lock().unwrap().asset_balances.index_ref(&fill_event.symbol).lock().unwrap() -= fill_event.amount;
         sell_trader.lock().unwrap().cents_balance += cent_value;
         sell_trader.lock().unwrap().net_cents_balance += cent_value;
-        // todo: handle error on adding fill to message_backup
         sell_trader.lock().unwrap().push_fill(fill_event.clone());
 
         debug!(
@@ -395,6 +407,33 @@ impl OrderBook {
             fill_event.price
         );
 
+    }
+
+    pub fn get_book_state(&self) -> String{
+        debug!("Getting book state!");
+        let mut ret_string = String::from("");
+        for price_level_index in 0..self.buy_side_limit_levels.len() {
+            let mut outstanding_sell_orders: usize = 0;
+            let mut outstanding_buy_orders: usize = 0;
+            for order in self.sell_side_limit_levels[price_level_index].orders.iter() {
+                outstanding_sell_orders += order.amount;
+            }
+            for order in self.buy_side_limit_levels[price_level_index].orders.iter() {
+                outstanding_buy_orders += order.amount;
+            }
+            let mut string_out = String::from("");
+            for _ in 0..outstanding_sell_orders {
+                string_out = string_out + "S"
+            }
+            for _ in 0..outstanding_buy_orders {
+                string_out = string_out + "B"
+            }
+            ret_string.push_str("\n");
+            ret_string.push_str(self.buy_side_limit_levels[price_level_index].price.to_string().as_str());
+            ret_string.push_str(&string_out);
+            // book_ouput[price_level_index] = outstanding_orders;
+        }
+        return ret_string
     }
 
     pub fn print_book_state(&self) {
@@ -434,7 +473,6 @@ impl OrderBook {
     //     Ok(())
     // }
 }
-
 pub fn quickstart_order_book(
     symbol: macro_calls::TickerSymbol,
     min_price: Price,
