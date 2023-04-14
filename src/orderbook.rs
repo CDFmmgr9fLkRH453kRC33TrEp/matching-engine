@@ -24,6 +24,18 @@ use std::fs::File;
 use std::process::{self};
 // use serde_json::Serialize;
 
+use actix_broker::{BrokerSubscribe, BrokerIssue, SystemBroker, ArbiterBroker, Broker};
+
+
+
+#[derive(Serialize, Clone, Message, Debug)]
+#[rtype(result = "()")]
+pub struct LimLevUpdate {
+    level : usize,
+    total_order_vol: usize,
+    side: OrderType
+}
+
 // Logging
 extern crate env_logger;
 use log::{debug, error, info, trace, warn};
@@ -69,8 +81,10 @@ pub struct OrderBook {
 #[derive(Debug, Clone)]
 struct LimitLevel {
     /// Struct representing one price level in the orderbook, containing a vector of Orders at this price
+    // TODO: add total_volume to this so we dont have to sum every time we are interested in it. 
     price: Price,
     orders: Vec<Order>,
+    total_volume: usize
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy)]
@@ -256,6 +270,7 @@ impl OrderBook {
                     sell_order.amount -= amount_to_be_traded;
                     self.buy_side_limit_levels[current_price_level].orders[0].amount -=
                         amount_to_be_traded;
+                    self.buy_side_limit_levels[current_price_level].total_volume -= amount_to_be_traded;
                     debug!(
                         "orders: {:?}",
                         self.sell_side_limit_levels[current_price_level].orders
@@ -266,8 +281,16 @@ impl OrderBook {
                             .orders
                             .remove(0);
                     }
+                    
+                    
                     // order_index += 1;
+                    Broker::<SystemBroker>::issue_async(LimLevUpdate{
+                        level: current_price_level,
+                        total_order_vol: self.buy_side_limit_levels[current_price_level].total_volume,
+                        side: OrderType::Buy
+                    });
                 }
+                
                 current_price_level -= 1;
             }
             // To do: find a more elegant way to avoid "skipping" price levels on the way down.
@@ -286,7 +309,14 @@ impl OrderBook {
         
         if sell_order.amount > 0 {
             let resting_order_id = self.add_order_to_book(sell_order);
+            self.sell_side_limit_levels[sell_order.price].total_volume += sell_order.amount;
             self.print_book_state();
+
+            Broker::<SystemBroker>::issue_async(LimLevUpdate{
+                level: sell_order.price,
+                total_order_vol: self.sell_side_limit_levels[sell_order.price].total_volume,
+                side: OrderType::Sell
+            });
             return Some(resting_order_id);
         } else {
             self.print_book_state();
@@ -339,13 +369,24 @@ impl OrderBook {
                     buy_order.amount -= amount_to_be_traded;
                     self.sell_side_limit_levels[current_price_level].orders[0].amount -=
                         amount_to_be_traded;
+                    self.sell_side_limit_levels[current_price_level].total_volume -= amount_to_be_traded;
+                    
+                    debug!("Sending LimLevUpdate");
+                    
+
                     if self.sell_side_limit_levels[current_price_level].orders[0].amount == 0 {
                         self.sell_side_limit_levels[current_price_level]
                             .orders
                             .remove(0);
                     }
                     // order_index += 1;
+                    Broker::<SystemBroker>::issue_async(LimLevUpdate{
+                        level: current_price_level,
+                        total_order_vol: self.sell_side_limit_levels[current_price_level].total_volume,
+                        side: OrderType::Sell
+                    });
                 }
+                
                 current_price_level += 1;
             }
             current_price_level -= 1;
@@ -369,7 +410,14 @@ impl OrderBook {
         if buy_order.amount > 0 {
             let resting_order_id = self.add_order_to_book(buy_order);
             self.print_book_state();
-            return Some(resting_order_id);            
+            self.sell_side_limit_levels[buy_order.price].total_volume += buy_order.amount;
+            debug!("Sending LimLevUpdate");
+            Broker::<SystemBroker>::issue_async(LimLevUpdate{
+                level: buy_order.price,
+                total_order_vol: self.sell_side_limit_levels[buy_order.price].total_volume,
+                side: OrderType::Buy
+            });
+            return Some(resting_order_id); 
         } else {
             self.print_book_state();
             return None;
@@ -411,7 +459,7 @@ impl OrderBook {
 
     pub fn get_book_state(&self) -> String{
         debug!("Getting book state!");
-        let mut ret_string = String::from("");
+        let mut ret_string = String::from("{[");
         for price_level_index in 0..self.buy_side_limit_levels.len() {
             let mut outstanding_sell_orders: usize = 0;
             let mut outstanding_buy_orders: usize = 0;
@@ -421,18 +469,18 @@ impl OrderBook {
             for order in self.buy_side_limit_levels[price_level_index].orders.iter() {
                 outstanding_buy_orders += order.amount;
             }
-            let mut string_out = String::from("");
-            for _ in 0..outstanding_sell_orders {
-                string_out = string_out + "S"
-            }
-            for _ in 0..outstanding_buy_orders {
-                string_out = string_out + "B"
-            }
-            ret_string.push_str("\n");
-            ret_string.push_str(self.buy_side_limit_levels[price_level_index].price.to_string().as_str());
-            ret_string.push_str(&string_out);
+            // let mut string_out = String::from("");
+            // for _ in 0..outstanding_sell_orders {
+            //     string_out = string_out + "S"
+            // }
+            // for _ in 0..outstanding_buy_orders {
+            //     string_out = string_out + "B"
+            // }
+            let limlevstr = format!("{{sellVolume:{},buyVolume:{}}},", outstanding_sell_orders, outstanding_buy_orders);
+            ret_string.push_str(&limlevstr);
             // book_ouput[price_level_index] = outstanding_orders;
         }
+        ret_string.push_str("]}");
         return ret_string
     }
 
@@ -484,12 +532,14 @@ pub fn quickstart_order_book(
             .map(|x| LimitLevel {
                 price: x,
                 orders: Vec::new(),
+                total_volume: 0
             })
             .collect(),
         sell_side_limit_levels: (min_price..max_price)
             .map(|x| LimitLevel {
                 price: x,
                 orders: Vec::new(),
+                total_volume: 0
             })
             .collect(),
         current_high_buy_price: min_price,

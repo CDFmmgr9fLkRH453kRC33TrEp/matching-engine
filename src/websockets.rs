@@ -240,6 +240,9 @@ pub async fn websocket(
     orderbook_data: web::Data<crate::macro_calls::GlobalOrderBookState>,
     accounts_data: web::Data<crate::macro_calls::GlobalAccountState>,
 ) -> Result<HttpResponse, Error> {
+    log::info!(
+        "New websocket connection with peer_addr"
+    );
     let conninfo = req.connection_info().clone();
     log::info!(
         "New websocket connection with peer_addr {:?}",
@@ -276,6 +279,7 @@ impl Actor for MyWebSocketActor {
     // Start the heartbeat process for this connection
     fn started(&mut self, ctx: &mut Self::Context) {
         self.subscribe_system_async::<orderbook::OrderBook>(ctx);
+        self.subscribe_system_async::<orderbook::LimLevUpdate>(ctx);
         debug!("Subscribed");
         self.hb(ctx);
     }
@@ -308,6 +312,20 @@ impl Handler<orderbook::OrderBook> for MyWebSocketActor {
         ctx.text(format!(
             "{:?}",
             &msg.get_book_state()
+        ));
+    }
+}
+
+impl Handler<orderbook::LimLevUpdate> for MyWebSocketActor {
+    type Result = ();
+
+    fn handle(&mut self, msg: orderbook::LimLevUpdate, ctx: &mut Self::Context) {
+        debug!("LimLevUpdate Message Received");
+        // msg.print_book_state();
+        
+        ctx.text(format!(
+            "{:?}",
+            serde_json::to_string(&msg).unwrap()
         ));
     }
 }
@@ -355,7 +373,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                 .parse::<u64>()
                 .unwrap();
             ctx.run_interval(Duration::new(dur, 0), |act, ctx| {
-                ctx.text("hello");
+                // ctx.text("hello");
             });
         } else {
             let account_id = crate::macro_calls::ip_to_id(connection_ip).unwrap();
@@ -413,7 +431,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
     // it should respond with a pong. These two messages are necessary
     // for the `hb()` function to maintain the connection status.
     fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
-        if self.connection_ip != env::var("GRAFANAIP").expect("GRAFANAIP not set").parse::<TraderIp>().unwrap() {
+        // if self.connection_ip != env::var("GRAFANAIP").expect("GRAFANAIP not set").parse::<TraderIp>().unwrap() {
             match msg {
                 Ok(ws::Message::Text(msg)) => {
                     // handle incoming JSON as usual.
@@ -431,15 +449,16 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                         warn!("Invalid ip for provided trader_id: {}", connection_ip);
                         warn!("connection_ip: {}", connection_ip);
                         warn!("ip_needed: {}", ip_needed);
-                        ctx.text("invalid ip for provided trader id.")
+                        ctx.text("invalid ip for provided trader id.");
+                        // ctx.close(None);
                     } else {
                         let res =
                             add_order(t, &self.global_orderbook_state, &self.global_account_state);
                         // println!("{}", res);
-                        let msg = self.global_orderbook_state.index_ref(&t.symbol).lock().unwrap().to_owned();
-                        debug!("Issuing Async Msg");
-                        Broker::<SystemBroker>::issue_async(msg);
-                        debug!("Issued Async Msg");
+                        // let msg = self.global_orderbook_state.index_ref(&t.symbol).lock().unwrap().to_owned();
+                        // debug!("Issuing Async Msg");
+                        // Broker::<SystemBroker>::issue_async(msg);
+                        // debug!("Issued Async Msg");
                         // println!("{:?}", serde_json::to_string_pretty(&t));
                         ctx.text(res)
                     }
@@ -448,7 +467,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                 // Ping/Pong will be used to make sure the connection is still alive
                 Ok(ws::Message::Ping(msg)) => {
                     self.hb = Instant::now();
-                    info!("Ping");
+                    // info!("Ping");
                     ctx.pong(&msg);
                 }
                 Ok(ws::Message::Pong(_)) => {
@@ -463,7 +482,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                     ctx.stop();
                 }
                 _ => ctx.stop(),
-            }
+            // }
         }
     }
 }

@@ -8,10 +8,12 @@ use crate::websockets::MyWebSocketActor;
 
 // TODO: clean up this mess!!!!!
 pub fn ip_to_id (ip: Ipv4Addr) -> Result<crate::macro_calls::TraderId, io::Error> {
-    if (ip == Ipv4Addr::new(172,16,123,1)) {
+    if (ip == Ipv4Addr::new(127,16,123,1)) {
         return Ok(crate::macro_calls::TraderId::Columbia_A);
-    } else if (ip == Ipv4Addr::new(172,16,123,2)){
+    } else if (ip == Ipv4Addr::new(127,16,123,2)){
         return Ok(crate::macro_calls::TraderId::Columbia_B);
+    } else if (ip == Ipv4Addr::new(127,16,123,0)){
+        return Ok(crate::macro_calls::TraderId::Columbia_Viz);
     } else {
         panic!("not a known ip");
     }
@@ -110,9 +112,11 @@ generate_global_state!([
         JNJ
     ], [
         Columbia_A,
-        Columbia_B
+        Columbia_B,
+        Columbia_Viz
     ]);
 generate_accounts_enum!([
         Columbia_A,
-        Columbia_B
+        Columbia_B,
+        Columbia_Viz
     ]);
