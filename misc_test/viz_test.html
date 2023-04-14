@@ -3,45 +3,85 @@
 <!-- Plotly.js -->
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+<script src="p5.js"></script>
 <script>
-    ws = new WebSocket("ws://172.16.123.0:4000/orders/ws")
-    var request_data_interval
-    ws.onopen = function()
-    {
-        // Web Socket is connected, send data using send()
-        ws.send("Message to send");
+    ws = new WebSocket("ws://127.16.123.0:4000/orders/ws")
+    // todo: maintain pointer to cross
+    // format: index is price, number is total amount at price level.
+    high_buy = 5
+    low_sell = 0
+    depth_chart_buy =   [0, 0, 0, 0, 0 , 0]
+    depth_chart_sell =  [0, 0, 0, 0, 0 , 0]
 
-        request_data_interval = window.setInterval(requestData, 50);
+    cansize = 400;
+    x_axis_offset = cansize;
+    scale_factor = 10;
+    col_width = cansize/depth_chart_buy.length
 
+    function setup() {
+        createCanvas(cansize, cansize);
+    }
+
+
+
+    function update_viz() {
+        background(220);
+
+        buy_pointer = high_buy;
+        
+        running_buy_interest = 0;
+        fill('rgb(0,255,0)');
+        console.log("depth_chart_buy", depth_chart_buy)
+        while (buy_pointer >= 0){
+            running_buy_interest += depth_chart_buy[buy_pointer] 
+            rect(buy_pointer* col_width, x_axis_offset-running_buy_interest*scale_factor, col_width, running_buy_interest*scale_factor)
+            // console.log(buy_pointer * col_width, x_axis_offset, col_width, running_buy_interest*10);
+            buy_pointer -= 1;
+        }
+        running_sell_interest = 0;
+        sell_pointer = low_sell;
+        fill('rgb(255,0,0)');
+        console.log("depth_chart_sell", depth_chart_sell)
+        while (sell_pointer <= depth_chart_sell.length){
+            running_sell_interest += depth_chart_sell[sell_pointer] 
+            rect(sell_pointer* col_width, x_axis_offset-running_sell_interest*scale_factor, col_width, running_sell_interest*scale_factor)
+            // console.log(sell_pointer * col_width, x_axis_offset, col_width, running_buy_interest*10);
+            sell_pointer += 1;
+        }
+    }
+
+    // receive a message from the server
+    ws.onmessage = function (evt) {
+        data = evt.data;
+        console.log("data", data);
+        const packet = JSON.parse(JSON.parse(data));
+        console.log(typeof packet);
+        console.log("level", packet["level"]);
+        console.log("total_order_vol", packet["total_order_vol"]);
+        console.log("side", packet["side"]);
+
+        const level = parseInt(packet["level"])
+        const side = packet["side"]
+        const total_order_vol = parseInt(packet["total_order_vol"])
+
+        if (packet["side"] == "Buy"){
+            console.log("updating buy side")
+            depth_chart_buy[level] = total_order_vol
+        }else if  (packet["side"] == "Sell"){
+            console.log("updating sell side")
+            depth_chart_sell[level] = total_order_vol
+            
+        }
+
+        update_viz();
     };
-		
-    ws.onmessage = function (evt) 
-    { 
-        var received_msg = evt.data;
-        console.log("received_msg:",received_msg);
-        // data = JSON.parse(evt.data);
 
-        // var my_plot = {
-        //     x: data.x, 
-        //     y: data.y, 
-        //     type: 'bar',
-        // };
-        // Plotly.newPlot('sine-graph', [my_plot]);
-    };
-		
     ws.onclose = function()
     { 
       // websocket is closed.
-      window.clearInterval(request_data_interval)
+     console.log("WS Conn closed :(")
     };
-    
-    function requestData()
-    {
-        ws.send("get-data");
-    }
 </script>
 <body>
 </body>
-<div id="sine-graph" style="width: 400px; height: 400px;">
-
 </html>

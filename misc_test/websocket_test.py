@@ -4,8 +4,8 @@ import json
 import argparse
 
 # NEED TO SET UP LOOPBACK FOR TESTING
-# sudo ifconfig lo0 alias 172.16.123.1 (columbia a)
-# sudo ifconfig lo0 alias 172.16.123.2 (columbia b)
+# sudo ifconfig lo0 alias 127.16.123.1 (columbia a)
+# sudo ifconfig lo0 alias 127.16.123.2 (columbia b)
 
 parser = argparse.ArgumentParser()
 
@@ -21,7 +21,7 @@ ws.connect(f"ws://{args.ip}:4000/orders/ws")
 jsonreq = {
             'OrderType': "Buy",
             'Amount': 1,
-            'Price': 5,
+            'Price': 4,
             'Symbol': "AAPL",
             'TraderId': f"{args.id}",            
         }
