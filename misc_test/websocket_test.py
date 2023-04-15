@@ -67,8 +67,16 @@ def trade_rand():
 #     trade_rand()
 flip = False
 
-while True:
-    trade_rand()
-    print(ws.recv())
-    ws.ping()
-    time.sleep(0.5)    
+time_old = time.time()
+time_old2 = time.time()
+
+while True:    
+    if(time.time() - time_old > 3):
+        ws.ping()
+        print(time.time() - time_old)
+        time_old = time.time()
+    if(time.time() - time_old2 > 0.01):
+        trade_rand()
+        time_old2 = time.time()
+        print(ws.recv())
+    # time.sleep(0.1)    

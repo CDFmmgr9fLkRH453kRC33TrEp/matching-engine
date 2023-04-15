@@ -28,15 +28,25 @@
     scale_factor = 10;
 
     function update_viz(symbol) {
+        textAlign(CENTER, BOTTOM);
         background(220);
+        textSize(10);
         
         buy_pointer = high_buy;
         col_width = cansize / orderbooks[symbol]["depth_chart_buy"].length
         running_buy_interest = 0;
         fill('rgb(0,255,0)');
         while (buy_pointer >= 0) {
+            fill('rgb(0,255,0)');
             running_buy_interest += orderbooks[symbol]["depth_chart_buy"][buy_pointer]
             rect(buy_pointer * col_width, x_axis_offset - running_buy_interest * orderbooks[symbol]["scale_factor"], col_width, running_buy_interest * orderbooks[symbol]["scale_factor"])
+            fill('rgb(0,0,0)');
+            text(buy_pointer, buy_pointer * col_width + col_width/2, x_axis_offset + 15)
+            if (running_buy_interest > 0){
+                fill('rgb(0,0,0)');
+                text(running_buy_interest, buy_pointer * col_width + col_width/2, x_axis_offset - running_buy_interest * orderbooks[symbol]["scale_factor"])
+                fill('rgb(0,255,0)');
+            }
             // console.log(buy_pointer * col_width, x_axis_offset, col_width, running_buy_interest*10);
             buy_pointer -= 1;
         }        
@@ -47,37 +57,50 @@
         while (sell_pointer < orderbooks[symbol]["depth_chart_sell"].length) {
             running_sell_interest += orderbooks[symbol]["depth_chart_sell"][sell_pointer]
             rect(sell_pointer * col_width, x_axis_offset - running_sell_interest * orderbooks[symbol]["scale_factor"], col_width, running_sell_interest * orderbooks[symbol]["scale_factor"])
+            if (running_sell_interest > 0){
+                fill('rgb(0,0,0)');
+                text(running_sell_interest, sell_pointer * col_width + col_width/2, x_axis_offset - running_sell_interest * orderbooks[symbol]["scale_factor"])
+                fill('rgb(255,0,0)');
+            }
             // console.log(sell_pointer * col_width, x_axis_offset, col_width, running_buy_interest*10);
             sell_pointer += 1;
         }
         
         orderbooks[symbol]["scale_factor"] = (cansize/2)/Math.max(running_buy_interest, running_sell_interest)
-        console.log(running_buy_interest, running_sell_interest)
-        console.log(Math.max(running_buy_interest, running_sell_interest))
-        console.log(scale_factor)
+        // console.log(running_buy_interest, running_sell_interest)
+        // console.log(Math.max(running_buy_interest, running_sell_interest))
+        // console.log(scale_factor)
+        
+        textAlign(LEFT, TOP);
         fill('rgb(0,0,0)');
-        text(symbol, 10, x_axis_offset + 20)
+        textSize(20);
+        text(symbol, 10, 10)
+        textSize(15);
+        text("Total Resting Buy Volume: " + running_buy_interest, 10,  30)
+        text("Total Resting Sell Volume: " + running_sell_interest, 10,  45)
     }
 
     function select_evt() {
         update_viz(sel.value())
+        update_viz(sel.value())
     }
 
     function setup() {
+        textAlign(LEFT, TOP);
         createCanvas(cansize, cansize);
         textSize(20);
         frameRate(60);
         background(220)
         sel = createSelect();
-        sel.position(10, 10);
+        sel.position(cansize - 80, 20);
         for (var key in orderbooks) {
             if (orderbooks.hasOwnProperty(key)) {
                 sel.option(key);
             }
         }
         sel.changed(select_evt);
+        // select_evt()
     }
-
 
 
 
@@ -127,6 +150,7 @@
                     );
                 }
             }
+            update_viz(sel.value());
             update_viz(sel.value());
         }
 

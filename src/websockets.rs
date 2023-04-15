@@ -22,8 +22,8 @@ use strum_macros::EnumIter; // 0.17.1
 
 use actix_broker::{ArbiterBroker, Broker, BrokerIssue, BrokerSubscribe, SystemBroker};
 
-const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
-const CLIENT_TIMEOUT: Duration = Duration::from_secs(2);
+const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(4);
+const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 use crate::orderbook::Fill;
 use crate::websockets::ws::CloseCode::Policy;
 use crate::websockets::ws::CloseReason;
@@ -230,7 +230,7 @@ impl MyWebSocketActor {
                 ctx.stop();
                 return;
             }
-            // debug!("sent ping message");
+            debug!("sent ping message");
             ctx.ping(b"");
         });
     }
@@ -473,11 +473,11 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
             // Ping/Pong will be used to make sure the connection is still alive
             Ok(ws::Message::Ping(msg)) => {
                 self.hb = Instant::now();
-                // info!("Ping");
+                // info!("Ping Received");
                 ctx.pong(&msg);
             }
             Ok(ws::Message::Pong(_)) => {
-                // info!("Pong");
+                // info!("Pong Received");
                 self.hb = Instant::now();
             }
             // Text will echo any text received back to the client (for now)
