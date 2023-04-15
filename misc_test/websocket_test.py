@@ -66,7 +66,9 @@ def trade_rand():
 # for i in range(1000):
 #     trade_rand()
 flip = False
+
 while True:
     trade_rand()
-    time.sleep(0.5)
-    # print(ws.recv())
+    print(ws.recv())
+    ws.ping()
+    time.sleep(0.5)    
