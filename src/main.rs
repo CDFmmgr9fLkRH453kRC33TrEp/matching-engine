@@ -48,14 +48,18 @@ async fn main() -> std::io::Result<()> {
     });
 
     let global_account_state = web::Data::new(macro_calls::GlobalAccountState {        
-        Columbia_A: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_A, 10, Ipv4Addr::new(127,16,123,1))),
-        Columbia_B: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_B, 10,Ipv4Addr::new(127,16,123,2))),
-        Columbia_Viz: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_Viz, 10,Ipv4Addr::new(127,16,123,0))),
+        Columbia_A: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_A, 1000, Ipv4Addr::new(127,16,123,1))),
+        Columbia_B: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_B, 1000,Ipv4Addr::new(127,16,123,2))),
+        Columbia_Viz: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_Viz, 1000,Ipv4Addr::new(127,16,123,0))),
     });
-    *global_account_state.Columbia_A.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 10;
-    *global_account_state.Columbia_A.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 10;
-    *global_account_state.Columbia_B.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 10;
-    *global_account_state.Columbia_B.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 10;    
+    *global_account_state.Columbia_A.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 300;
+    *global_account_state.Columbia_A.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 300;
+    *global_account_state.Columbia_A.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::JNJ).lock().unwrap() = 300; 
+    *global_account_state.Columbia_A.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::JNJ).lock().unwrap() = 300;  
+    *global_account_state.Columbia_B.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 300;
+    *global_account_state.Columbia_B.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 300;  
+    *global_account_state.Columbia_B.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::JNJ).lock().unwrap() = 300; 
+    *global_account_state.Columbia_B.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::JNJ).lock().unwrap() = 300;    
 
     // handlers discriminate based on type, so can safely pass both pieces of state here
     HttpServer::new(move || {

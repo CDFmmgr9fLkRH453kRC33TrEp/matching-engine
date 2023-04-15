@@ -17,7 +17,8 @@ fn main() {
     let account_ids = "
     [
         Columbia_A,
-        Columbia_B
+        Columbia_B,
+        Columbia_Viz
     ]
     ";
     // todo: make this load from csv?
@@ -43,15 +44,18 @@ use crate::websockets::MyWebSocketActor;
 
 // TODO: clean up this mess!!!!!
 pub fn ip_to_id (ip: Ipv4Addr) -> Result<crate::macro_calls::TraderId, io::Error> {{
-    if (ip == Ipv4Addr::new(172,16,123,1)) {{
+    if (ip == Ipv4Addr::new(127,16,123,1)) {{
         return Ok(crate::macro_calls::TraderId::Columbia_A);
-    }} else if (ip == Ipv4Addr::new(172,16,123,2)){{
+    }} else if (ip == Ipv4Addr::new(127,16,123,2)){{
         return Ok(crate::macro_calls::TraderId::Columbia_B);
+    }} else if (ip == Ipv4Addr::new(127,16,123,0)){{
+        return Ok(crate::macro_calls::TraderId::Columbia_Viz);
     }} else {{
         panic!(\"not a known ip\");
     }}
 }}
 
+use strum_macros::EnumIter;
 use core::fmt::Debug;
 use serde::{{Deserialize, Serialize}};
 use std::sync::Mutex;
@@ -72,7 +76,7 @@ macro_rules! generate_enum {{
 
 macro_rules! generate_accounts_enum {{
     ([$($name:ident),*]) => {{
-        #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+        #[derive(Debug, Copy, Clone, Deserialize, Serialize, EnumIter)]
         pub enum TraderId {{
             $($name, )*
         }}       
@@ -105,7 +109,7 @@ macro_rules! generate_account_balances_struct {{
 
 macro_rules! generate_global_state {{
     ([$($name:ident),*], [$($account_id:ident),*]) => {{
-        #[derive(Debug)]
+        #[derive(Debug, Serialize)]
         pub struct GlobalOrderBookState {{
             $(pub $name: Mutex<crate::orderbook::OrderBook>, )*
         }}

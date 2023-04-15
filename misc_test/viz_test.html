@@ -8,80 +8,138 @@
     ws = new WebSocket("ws://127.16.123.0:4000/orders/ws")
     // todo: maintain pointer to cross
     // format: index is price, number is total amount at price level.
-    high_buy = 5
+    high_buy = 10
     low_sell = 0
-    depth_chart_buy =   [0, 0, 0, 0, 0 , 0]
-    depth_chart_sell =  [0, 0, 0, 0, 0 , 0]
-
-    cansize = 400;
-    x_axis_offset = cansize;
-    scale_factor = 10;
-    col_width = cansize/depth_chart_buy.length
-
-    function setup() {
-        createCanvas(cansize, cansize);
+    orderbooks = {
+        "AAPL": {
+            "scale_factor": 1,
+            "depth_chart_buy": [],
+            "depth_chart_sell": []
+        },
+        "JNJ": {
+            "scale_factor": 1,
+            "depth_chart_buy": [],
+            "depth_chart_sell": []
+        }
     }
 
+    cansize = 400;
+    x_axis_offset = cansize - 40;
+    scale_factor = 10;
 
-
-    function update_viz() {
+    function update_viz(symbol) {
         background(220);
-
-        buy_pointer = high_buy;
         
+        buy_pointer = high_buy;
+        col_width = cansize / orderbooks[symbol]["depth_chart_buy"].length
         running_buy_interest = 0;
         fill('rgb(0,255,0)');
-        console.log("depth_chart_buy", depth_chart_buy)
-        while (buy_pointer >= 0){
-            running_buy_interest += depth_chart_buy[buy_pointer] 
-            rect(buy_pointer* col_width, x_axis_offset-running_buy_interest*scale_factor, col_width, running_buy_interest*scale_factor)
+        while (buy_pointer >= 0) {
+            running_buy_interest += orderbooks[symbol]["depth_chart_buy"][buy_pointer]
+            rect(buy_pointer * col_width, x_axis_offset - running_buy_interest * orderbooks[symbol]["scale_factor"], col_width, running_buy_interest * orderbooks[symbol]["scale_factor"])
             // console.log(buy_pointer * col_width, x_axis_offset, col_width, running_buy_interest*10);
             buy_pointer -= 1;
-        }
+        }        
+
         running_sell_interest = 0;
         sell_pointer = low_sell;
         fill('rgb(255,0,0)');
-        console.log("depth_chart_sell", depth_chart_sell)
-        while (sell_pointer <= depth_chart_sell.length){
-            running_sell_interest += depth_chart_sell[sell_pointer] 
-            rect(sell_pointer* col_width, x_axis_offset-running_sell_interest*scale_factor, col_width, running_sell_interest*scale_factor)
+        while (sell_pointer < orderbooks[symbol]["depth_chart_sell"].length) {
+            running_sell_interest += orderbooks[symbol]["depth_chart_sell"][sell_pointer]
+            rect(sell_pointer * col_width, x_axis_offset - running_sell_interest * orderbooks[symbol]["scale_factor"], col_width, running_sell_interest * orderbooks[symbol]["scale_factor"])
             // console.log(sell_pointer * col_width, x_axis_offset, col_width, running_buy_interest*10);
             sell_pointer += 1;
         }
+        
+        orderbooks[symbol]["scale_factor"] = (cansize/2)/Math.max(running_buy_interest, running_sell_interest)
+        console.log(running_buy_interest, running_sell_interest)
+        console.log(Math.max(running_buy_interest, running_sell_interest))
+        console.log(scale_factor)
+        fill('rgb(0,0,0)');
+        text(symbol, 10, x_axis_offset + 20)
     }
 
+    function select_evt() {
+        update_viz(sel.value())
+    }
+
+    function setup() {
+        createCanvas(cansize, cansize);
+        textSize(20);
+        frameRate(60);
+        background(220)
+        sel = createSelect();
+        sel.position(10, 10);
+        for (var key in orderbooks) {
+            if (orderbooks.hasOwnProperty(key)) {
+                sel.option(key);
+            }
+        }
+        sel.changed(select_evt);
+    }
+
+
+
+
+    start_up_message = true;
     // receive a message from the server
     ws.onmessage = function (evt) {
-        data = evt.data;
-        console.log("data", data);
-        const packet = JSON.parse(JSON.parse(data));
-        console.log(typeof packet);
-        console.log("level", packet["level"]);
-        console.log("total_order_vol", packet["total_order_vol"]);
-        console.log("side", packet["side"]);
 
-        const level = parseInt(packet["level"])
-        const side = packet["side"]
-        const total_order_vol = parseInt(packet["total_order_vol"])
+        if (!start_up_message) {
+            data = evt.data;
+            // console.log("data", data);
+            const packet = JSON.parse(JSON.parse(data));
+            console.log(typeof packet);
+            console.log("level", packet["level"]);
+            console.log("total_order_vol", packet["total_order_vol"]);
+            console.log("side", packet["side"]);
 
-        if (packet["side"] == "Buy"){
-            console.log("updating buy side")
-            depth_chart_buy[level] = total_order_vol
-        }else if  (packet["side"] == "Sell"){
-            console.log("updating sell side")
-            depth_chart_sell[level] = total_order_vol
-            
+            const level = parseInt(packet["level"])
+            const side = packet["side"]
+            const total_order_vol = parseInt(packet["total_order_vol"])
+            const symbol = packet["symbol"]
+
+            if (packet["side"] == "Buy") {
+                console.log("updating buy side")
+                orderbooks[symbol]["depth_chart_buy"][level] = total_order_vol
+            } else if (packet["side"] == "Sell") {
+                console.log("updating sell side")
+                orderbooks[symbol]["depth_chart_sell"][level] = total_order_vol
+            }
+            if (sel.value() == symbol) {
+                update_viz(symbol);
+            }
+        } else {
+            data = evt.data;
+            start_up_message = false
+            // this is the orderbook dump
+            const packet = JSON.parse(data);
+            // console.log(packet)
+            for (var orderbook in packet) {
+                // console.log(orderbook)
+                if (orderbooks.hasOwnProperty(orderbook)) {
+                    packet[orderbook]["buy_side_limit_levels"].forEach((x, i) => {
+                        console.log(i, x);
+                        orderbooks[orderbook]["depth_chart_buy"][i] = parseInt(x["total_volume"])
+                    });
+                    packet[orderbook]["sell_side_limit_levels"].forEach((x, i) =>
+                        orderbooks[orderbook]["depth_chart_sell"][i] = parseInt(x["total_volume"])
+                    );
+                }
+            }
+            update_viz(sel.value());
         }
 
-        update_viz();
+
     };
 
-    ws.onclose = function()
-    { 
-      // websocket is closed.
-     console.log("WS Conn closed :(")
+    ws.onclose = function () {
+        // websocket is closed.
+        console.log("WS Conn closed :(")
     };
 </script>
+
 <body>
 </body>
+
 </html>

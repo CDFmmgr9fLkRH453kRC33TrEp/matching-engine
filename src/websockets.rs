@@ -1,9 +1,8 @@
 // todo: separate websocket handling actors from actors handling state/fill message queueing?
-// i.e. actor handling state subscribes to fill messages, then checks if there is a websocket actor associated with the account and then sends fill message to them 
+// i.e. actor handling state subscribes to fill messages, then checks if there is a websocket actor associated with the account and then sends fill message to them
 // actors handling state have static lifetime and are spawned when  program starts
-// actors handling websockets are spawned when new connection occurs, and end when connection is dropped. 
-// otherwise will add to fill message backlog. 
-
+// actors handling websockets are spawned when new connection occurs, and end when connection is dropped.
+// otherwise will add to fill message backlog.
 
 use actix::prelude::*;
 use actix_web::web::Bytes;
@@ -15,14 +14,16 @@ use std::env;
 use std::f32::consts::E;
 use std::fmt::format;
 use std::net::Ipv4Addr;
-use std::time::{Duration, Instant};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
+use strum::IntoEnumIterator; // 0.17.1
+use strum_macros::EnumIter; // 0.17.1
 
-use actix_broker::{BrokerSubscribe, BrokerIssue, SystemBroker, ArbiterBroker, Broker};
+use actix_broker::{ArbiterBroker, Broker, BrokerIssue, BrokerSubscribe, SystemBroker};
 
-const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
-const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
+const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(1);
+const CLIENT_TIMEOUT: Duration = Duration::from_secs(2);
 use crate::orderbook::Fill;
 use crate::websockets::ws::CloseCode::Policy;
 use crate::websockets::ws::CloseReason;
@@ -95,7 +96,7 @@ fn add_order(
     if (order_request_inner.order_type == crate::orderbook::OrderType::Sell) {
         // ISSUE: This should decrement cents_balance to avoid racing to place two orders before updating cents_balance
         // check if current cash balance - outstanding orders supports order
-        // nevermind, as long as I acquire and hold a lock during the entire order placement attempt, it should be safe       
+        // nevermind, as long as I acquire and hold a lock during the entire order placement attempt, it should be safe
         if (*accounts_data
             .index_ref(order_request_inner.trader_id)
             .lock()
@@ -111,7 +112,7 @@ fn add_order(
                 "Error Placing Order: The total amount of this trade would take your account short",
             );
         }
-        
+
         *accounts_data
             .index_ref(order_request_inner.trader_id)
             .lock()
@@ -154,7 +155,7 @@ fn add_order(
         .unwrap()
         .handle_incoming_order_request(order_request_inner.clone(), accounts_data);
     let book_state = data.index_ref(symbol).lock().unwrap();
-    
+
     match order_id {
         Some(inner) => return inner.hyphenated().to_string(),
         None => String::from("Filled"),
@@ -225,6 +226,7 @@ impl MyWebSocketActor {
     fn hb(&self, ctx: &mut <Self as Actor>::Context) {
         ctx.run_interval(HEARTBEAT_INTERVAL, |act, ctx| {
             if Instant::now().duration_since(act.hb) > CLIENT_TIMEOUT {
+                warn!("Client Timed Out :(");
                 ctx.stop();
                 return;
             }
@@ -240,18 +242,14 @@ pub async fn websocket(
     orderbook_data: web::Data<crate::macro_calls::GlobalOrderBookState>,
     accounts_data: web::Data<crate::macro_calls::GlobalAccountState>,
 ) -> Result<HttpResponse, Error> {
-    log::info!(
-        "New websocket connection with peer_addr"
-    );
+    log::info!("New websocket connection with peer_addr");
     let conninfo = req.connection_info().clone();
     log::info!(
         "New websocket connection with peer_addr {:?}",
         conninfo.peer_addr()
     );
 
-
-
-    // todo: change ws:start to be adding a stream to existing actor. 
+    // todo: change ws:start to be adding a stream to existing actor.
 
     let id = macro_calls::ip_to_id(conninfo.peer_addr().unwrap().parse().unwrap()).unwrap();
 
@@ -282,6 +280,27 @@ impl Actor for MyWebSocketActor {
         self.subscribe_system_async::<orderbook::LimLevUpdate>(ctx);
         debug!("Subscribed");
         self.hb(ctx);
+ 
+    }
+
+    fn stopped(&mut self, ctx: &mut Self::Context) {
+        let account_id = crate::macro_calls::ip_to_id(self.connection_ip).unwrap();
+        let curr_actor = &mut self
+            .global_account_state
+            .index_ref(account_id)
+            .lock()
+            .unwrap()
+            .current_actor;
+        match curr_actor {
+            Some(x) => {
+                *curr_actor = None;
+            }
+            None => error!("Error, no websocket connected?"),
+        }
+        info!(
+            "Websocket connection ended (id: {:?}, peer_ip:{}).",
+            account_id, self.connection_ip
+        );
     }
 }
 
@@ -309,10 +328,7 @@ impl Handler<orderbook::OrderBook> for MyWebSocketActor {
     fn handle(&mut self, msg: orderbook::OrderBook, ctx: &mut Self::Context) {
         debug!("Orderbook Message Received");
         // msg.print_book_state();
-        ctx.text(format!(
-            "{:?}",
-            &msg.get_book_state()
-        ));
+        ctx.text(format!("{:?}", &msg.get_book_state()));
     }
 }
 
@@ -322,11 +338,8 @@ impl Handler<orderbook::LimLevUpdate> for MyWebSocketActor {
     fn handle(&mut self, msg: orderbook::LimLevUpdate, ctx: &mut Self::Context) {
         debug!("LimLevUpdate Message Received");
         // msg.print_book_state();
-        
-        ctx.text(format!(
-            "{:?}",
-            serde_json::to_string(&msg).unwrap()
-        ));
+
+        ctx.text(format!("{:?}", serde_json::to_string(&msg).unwrap()));
     }
 }
 
@@ -336,93 +349,86 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
     // and sends out all fill messages in the trader account's queue
 
     fn finished(&mut self, ctx: &mut Self::Context) {
-        let account_id = crate::macro_calls::ip_to_id(self.connection_ip).unwrap();
-        let curr_actor = &mut self
-            .global_account_state
-            .index_ref(account_id)
-            .lock()
-            .unwrap()
-            .current_actor;
-        match curr_actor {
-            Some(x) => {
-                *curr_actor = None;
-            }
-            None => error!("Error, no websocket connected?"),
-        }
-        info!(
-            "Websocket connection ended (id: {:?}, peer_ip:{}).",
-            account_id, self.connection_ip
-        );
+
         ctx.stop()
     }
-
 
     fn started(&mut self, ctx: &mut Self::Context) {
         // Broker::<SystemBroker>::issue_async(self.global_orderbook_state);
         let connection_ip = self.connection_ip;
 
-        if (connection_ip
-            == env::var("GRAFANAIP")
-                .expect("$GRAFANAIP is not set")
-                .parse::<TraderIp>()
-                .unwrap())
+        // if (connection_ip
+        //     == env::var("GRAFANAIP")
+        //         .expect("$GRAFANAIP is not set")
+        //         .parse::<TraderIp>()
+        //         .unwrap())
+        // {
+        //     info!("New grafana connection");
+        //     let dur = env::var("GRAFANAPOLLDUR")
+        //         .expect("$GRAFANAPOLLDUR is not set")
+        //         .parse::<u64>()
+        //         .unwrap();
+        //     ctx.run_interval(Duration::new(dur, 0), |act, ctx| {
+        //         // ctx.text("hello");
+        //     });
+        // } else {
+        let account_id = crate::macro_calls::ip_to_id(connection_ip).unwrap();
+        debug!("Trader with id {:?} connected.", account_id);
         {
-            info!("New grafana connection");
-            let dur = env::var("GRAFANAPOLLDUR")
-                .expect("$GRAFANAPOLLDUR is not set")
-                .parse::<u64>()
-                .unwrap();
-            ctx.run_interval(Duration::new(dur, 0), |act, ctx| {
-                // ctx.text("hello");
-            });
-        } else {
-            let account_id = crate::macro_calls::ip_to_id(connection_ip).unwrap();
-            debug!("Trader with id {:?} connected.", account_id);
-            {
-                let curr_actor = &mut self
-                    .global_account_state
-                    .index_ref(account_id)
-                    .lock()
-                    .unwrap()
-                    .current_actor;
-                match curr_actor {
-                    Some(x) => {
-                        error!("Trader_id already has websocket connected");
-                        ctx.close(Some(CloseReason {
-                            code: Policy,
-                            description: Some(format!("you already have a websocket connected.")),
-                        }))
-                    }
-                    None => *curr_actor = Some(ctx.address()),
-                }
-            }
-            let message_queue = &mut self
+            let curr_actor = &mut self
                 .global_account_state
                 .index_ref(account_id)
                 .lock()
                 .unwrap()
-                .message_backup;
-
-            // ctx.text("new message");
-            while (message_queue.size() != 0) {
-                // println!("Message #{:?}", message_queue.size());
-                let fill_event = message_queue.remove().unwrap();
-                // println!("{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
-                // fill_event.sell_trader_id,
-                // fill_event.buy_trader_id,
-                // fill_event.amount,
-                // fill_event.symbol,
-                // fill_event.price);
-                ctx.text(format!(
-                    "{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
-                    fill_event.sell_trader_id,
-                    fill_event.buy_trader_id,
-                    fill_event.amount,
-                    fill_event.symbol,
-                    fill_event.price
-                ));
+                .current_actor;
+        
+            match curr_actor {                
+                Some(x) => {                    
+                    if (connection_ip
+                        != env::var("GRAFANAIP")
+                            .expect("$GRAFANAIP is not set")
+                            .parse::<TraderIp>()
+                            .unwrap())
+                    {
+                        // FOR SOME REASON THIS IS NOT WORKING -- STILL EXECUTES ORDERS
+                        error!("Trader_id already has websocket connected");                        
+                        // ctx.stop();
+                        ctx.stop();                                                
+                    }
+                }
+                None => *curr_actor = Some(ctx.address()),
             }
         }
+        let message_queue = &mut self
+            .global_account_state
+            .index_ref(account_id)
+            .lock()
+            .unwrap()
+            .message_backup;
+
+        // ctx.text("new message");
+        while (message_queue.size() != 0) {
+            // println!("Message #{:?}", message_queue.size());
+            let fill_event = message_queue.remove().unwrap();
+            // println!("{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
+            // fill_event.sell_trader_id,
+            // fill_event.buy_trader_id,
+            // fill_event.amount,
+            // fill_event.symbol,
+            // fill_event.price);
+            ctx.text(format!(
+                "{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
+                fill_event.sell_trader_id,
+                fill_event.buy_trader_id,
+                fill_event.amount,
+                fill_event.symbol,
+                fill_event.price
+            ));
+            // }
+            // should send global orderbook state.
+        }
+        debug!("Sending serialized orderbook state.");
+        ctx.text(serde_json::to_string(&self.global_orderbook_state).unwrap());
     }
     // finished() function removes the trader account's actor addr
 
@@ -432,56 +438,68 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
     // for the `hb()` function to maintain the connection status.
     fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         // if self.connection_ip != env::var("GRAFANAIP").expect("GRAFANAIP not set").parse::<TraderIp>().unwrap() {
-            match msg {
-                Ok(ws::Message::Text(msg)) => {
-                    // handle incoming JSON as usual.
-                    let d = &msg.to_string();
-                    let t: OrderRequest = serde_json::from_str(d).unwrap();
+        match msg {
+            Ok(ws::Message::Text(msg)) => {
+                // handle incoming JSON as usual.
+                let d = &msg.to_string();
+                let t: OrderRequest = serde_json::from_str(d).unwrap();
 
-                    let connection_ip = self.connection_ip;
-                    let ip_needed = self
-                        .global_account_state
-                        .index_ref(t.trader_id)
-                        .lock()
-                        .unwrap()
-                        .trader_ip;
-                    if (connection_ip != ip_needed) {
-                        warn!("Invalid ip for provided trader_id: {}", connection_ip);
-                        warn!("connection_ip: {}", connection_ip);
-                        warn!("ip_needed: {}", ip_needed);
-                        ctx.text("invalid ip for provided trader id.");
-                        // ctx.close(None);
-                    } else {
-                        let res =
-                            add_order(t, &self.global_orderbook_state, &self.global_account_state);
-                        // println!("{}", res);
-                        // let msg = self.global_orderbook_state.index_ref(&t.symbol).lock().unwrap().to_owned();
-                        // debug!("Issuing Async Msg");
-                        // Broker::<SystemBroker>::issue_async(msg);
-                        // debug!("Issued Async Msg");
-                        // println!("{:?}", serde_json::to_string_pretty(&t));
-                        ctx.text(res)
-                    }
+                let connection_ip = self.connection_ip;
+                let ip_needed = self
+                    .global_account_state
+                    .index_ref(t.trader_id)
+                    .lock()
+                    .unwrap()
+                    .trader_ip;
+                if (connection_ip != ip_needed) {
+                    warn!("Invalid ip for provided trader_id: {}", connection_ip);
+                    warn!("connection_ip: {}", connection_ip);
+                    warn!("ip_needed: {}", ip_needed);
+                    ctx.text("invalid ip for provided trader id.");
+                    // ctx.close(None);
+                } else {
+                    let res =
+                        add_order(t, &self.global_orderbook_state, &self.global_account_state);
+                    // println!("{}", res);
+                    // let msg = self.global_orderbook_state.index_ref(&t.symbol).lock().unwrap().to_owned();
+                    // debug!("Issuing Async Msg");
+                    // Broker::<SystemBroker>::issue_async(msg);
+                    // debug!("Issued Async Msg");
+                    // println!("{:?}", serde_json::to_string_pretty(&t));
+                    ctx.text(res)
                 }
+            }
 
-                // Ping/Pong will be used to make sure the connection is still alive
-                Ok(ws::Message::Ping(msg)) => {
-                    self.hb = Instant::now();
-                    // info!("Ping");
-                    ctx.pong(&msg);
-                }
-                Ok(ws::Message::Pong(_)) => {
-                    // info!("Pong");
-                    self.hb = Instant::now();
-                }
-                // Text will echo any text received back to the client (for now)
-                // Ok(ws::Message::Text(text)) => ctx.text(text),
-                // Close will close the socket
-                Ok(ws::Message::Close(reason)) => {
-                    ctx.close(reason);
-                    ctx.stop();
-                }
-                _ => ctx.stop(),
+            // Ping/Pong will be used to make sure the connection is still alive
+            Ok(ws::Message::Ping(msg)) => {
+                self.hb = Instant::now();
+                // info!("Ping");
+                ctx.pong(&msg);
+            }
+            Ok(ws::Message::Pong(_)) => {
+                // info!("Pong");
+                self.hb = Instant::now();
+            }
+            // Text will echo any text received back to the client (for now)
+            // Ok(ws::Message::Text(text)) => ctx.text(text),
+            // Close will close the socket
+            Ok(ws::Message::Close(reason)) => {
+                // let account_id = crate::macro_calls::ip_to_id(connection_ip).unwrap();
+
+                //  self
+                // .global_account_state
+                // .index_ref(account_id)
+                // .lock()
+                // .unwrap()
+                // .current_actor = None;
+                error!("Received close message, closing context.");                
+                ctx.close(reason);
+                // ctx.stop();
+            }
+            _ => {
+                error!("Error reading message, stopping context.");
+                ctx.stop();
+            }
             // }
         }
     }

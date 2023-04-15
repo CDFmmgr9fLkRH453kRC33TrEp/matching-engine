@@ -19,6 +19,7 @@ pub fn ip_to_id (ip: Ipv4Addr) -> Result<crate::macro_calls::TraderId, io::Error
     }
 }
 
+use strum_macros::EnumIter;
 use core::fmt::Debug;
 use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
@@ -39,7 +40,7 @@ macro_rules! generate_enum {
 
 macro_rules! generate_accounts_enum {
     ([$($name:ident),*]) => {
-        #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+        #[derive(Debug, Copy, Clone, Deserialize, Serialize, EnumIter)]
         pub enum TraderId {
             $($name, )*
         }       
@@ -72,7 +73,7 @@ macro_rules! generate_account_balances_struct {
 
 macro_rules! generate_global_state {
     ([$($name:ident),*], [$($account_id:ident),*]) => {
-        #[derive(Debug)]
+        #[derive(Debug, Serialize)]
         pub struct GlobalOrderBookState {
             $(pub $name: Mutex<crate::orderbook::OrderBook>, )*
         }

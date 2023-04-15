@@ -1,8 +1,11 @@
 use crate::accounts;
 use crate::macro_calls;
+use crate::macro_calls::TickerSymbol;
 use queues;
 use queues::IsQueue;
 use std::sync::Arc;
+
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use actix::prelude::*;
 
@@ -33,7 +36,9 @@ use actix_broker::{BrokerSubscribe, BrokerIssue, SystemBroker, ArbiterBroker, Br
 pub struct LimLevUpdate {
     level : usize,
     total_order_vol: usize,
-    side: OrderType
+    side: OrderType,
+    symbol: TickerSymbol,
+    timestamp: usize,
 }
 
 // Logging
@@ -63,7 +68,7 @@ pub enum OrderType {
 //     }
 // }
 
-#[derive(Debug, Message, Clone)]
+#[derive(Debug, Message, Clone, Serialize)]
 #[rtype(result = "()")]
 pub struct OrderBook {
     /// Struct representing a double sided order book for a single product.
@@ -78,11 +83,12 @@ pub struct OrderBook {
 }
 
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 struct LimitLevel {
     /// Struct representing one price level in the orderbook, containing a vector of Orders at this price
     // TODO: add total_volume to this so we dont have to sum every time we are interested in it. 
     price: Price,
+    #[serde(skip_serializing)]
     orders: Vec<Order>,
     total_volume: usize
 }
@@ -98,7 +104,7 @@ pub struct OrderRequest {
     pub symbol: macro_calls::TickerSymbol,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Order {
     /// Struct representing an existing order in the order book
     pub order_id: Uuid,
@@ -270,6 +276,8 @@ impl OrderBook {
                     sell_order.amount -= amount_to_be_traded;
                     self.buy_side_limit_levels[current_price_level].orders[0].amount -=
                         amount_to_be_traded;
+                    warn!("Buy side @price {:?} total_volume: {:?}", current_price_level, self.buy_side_limit_levels[current_price_level].total_volume);
+                    warn!("Amount to be traded: {:?}", amount_to_be_traded);
                     self.buy_side_limit_levels[current_price_level].total_volume -= amount_to_be_traded;
                     debug!(
                         "orders: {:?}",
@@ -287,7 +295,9 @@ impl OrderBook {
                     Broker::<SystemBroker>::issue_async(LimLevUpdate{
                         level: current_price_level,
                         total_order_vol: self.buy_side_limit_levels[current_price_level].total_volume,
-                        side: OrderType::Buy
+                        side: OrderType::Buy,
+                        symbol: self.symbol,
+                        timestamp: SystemTime::now().duration_since(UNIX_EPOCH).expect("System Time Error").subsec_nanos() as usize,
                     });
                 }
                 
@@ -315,7 +325,9 @@ impl OrderBook {
             Broker::<SystemBroker>::issue_async(LimLevUpdate{
                 level: sell_order.price,
                 total_order_vol: self.sell_side_limit_levels[sell_order.price].total_volume,
-                side: OrderType::Sell
+                side: OrderType::Sell,
+                symbol: self.symbol,
+                timestamp: SystemTime::now().duration_since(UNIX_EPOCH).expect("System Time Error").subsec_nanos() as usize
             });
             return Some(resting_order_id);
         } else {
@@ -383,7 +395,9 @@ impl OrderBook {
                     Broker::<SystemBroker>::issue_async(LimLevUpdate{
                         level: current_price_level,
                         total_order_vol: self.sell_side_limit_levels[current_price_level].total_volume,
-                        side: OrderType::Sell
+                        side: OrderType::Sell,
+                        symbol: self.symbol,
+                        timestamp: SystemTime::now().duration_since(UNIX_EPOCH).expect("System Time Error").subsec_nanos() as usize,
                     });
                 }
                 
@@ -410,12 +424,16 @@ impl OrderBook {
         if buy_order.amount > 0 {
             let resting_order_id = self.add_order_to_book(buy_order);
             self.print_book_state();
-            self.sell_side_limit_levels[buy_order.price].total_volume += buy_order.amount;
+            debug!("Increasing total_volume on buy_side_limit_levels @ price {:?}", buy_order.price);
+            self.buy_side_limit_levels[buy_order.price].total_volume += buy_order.amount;
+            debug!(" total_volume on buy_side_limit_levels @ price {:?}: {:?}", buy_order.price, self.buy_side_limit_levels[buy_order.price].total_volume);
             debug!("Sending LimLevUpdate");
             Broker::<SystemBroker>::issue_async(LimLevUpdate{
                 level: buy_order.price,
-                total_order_vol: self.sell_side_limit_levels[buy_order.price].total_volume,
-                side: OrderType::Buy
+                total_order_vol: self.buy_side_limit_levels[buy_order.price].total_volume,
+                side: OrderType::Buy,
+                symbol: self.symbol,
+                timestamp: SystemTime::now().duration_since(UNIX_EPOCH).expect("System Time Error").subsec_nanos() as usize,
             });
             return Some(resting_order_id); 
         } else {
