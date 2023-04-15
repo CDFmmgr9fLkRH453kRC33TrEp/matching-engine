@@ -2,7 +2,7 @@
 Simplistic exchange simulator with in memory order book and multi asset credit limit enforcement.
 
 
-![Video example of exchange](docs/output3.mp4 "Simple example with two actors and assets")
+![Video example of exchange](docs/output3.mov "Simple example with two actors and assets")
 
 ![trade request event flowchart](docs/trade_flowchart.png "Trade request event")
 
