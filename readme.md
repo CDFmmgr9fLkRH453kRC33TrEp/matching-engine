@@ -1,6 +1,9 @@
 # Rust Matching Engine, Limit Order Book, and Exchange Simulator
 Simplistic exchange simulator with in memory order book and multi asset credit limit enforcement.
 
+
+![Video example of exchange](docs/exchange_demo.mov "Simple example with two actors and assets")
+
 ![trade request event flowchart](docs/trade_flowchart.png "Trade request event")
 
 [Flowchart Link](https://mermaid.live/edit#pako:eNqVU9tOg0AQ_ZXJPmli_QBiTJRSNWmjsbyBDytMgZRlcXYwNsC_uwtWaaNG92ku58yZnZ1tRaJTFJ7ISNY5hPO4AnuYZIq0kkleVNi24eDCh9_3MJtddvfkYo_40qDhDm7D8GGN9IrUts6G0en7seJX2pHBj_wcky3QSIcSM1kWvHsa0b4DBdFKlhtNCtO9zDS9iHzCtGC4M6bBaeYmWuea2HZQlnDFqOoDYqZ1OtwoWjrVo9qLob8uINIECo2RGXaHAxmBN38FBn8FfjY2Eo4GrCQ7bBZU2fAoqw8fxsB-0IewSaUOlvfXI8YaMDt3mVobUzyXCPiGScOFro6F9oO7GAiWGZ04un0XuDIG-fTpZ93hjlCXMkGFFccWqRtOtMLpvny7IL9yv5ndf-iJbipGqiXx7nPH_UlwsuniTCgkJYvUfpLWacWCc1szFp41U0nbWMRVb3GyYb3eVYnwmBo8E02dSsZ5Ie3fUsLbyNJg_w7wdizz)
