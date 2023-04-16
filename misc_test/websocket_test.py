@@ -41,9 +41,12 @@ off = random.randint(-3,3)
 
 def trade_rand():
     global flip
-    symbol = random.choice(["AAPL", "JNJ"])
-    price = int(m(math.sin(time.time()+off)))
-    side = random.choice(["Sell", "Buy"])
+    # symbol = random.choice(["AAPL"])
+    symbol = "AAPL"
+    # price = int(m(math.sin(time.time()+off)))
+    price = 1
+    # side = random.choice(["Sell", "Buy"])
+    side = "Buy"
     # if flip:
     #     flip = False
     #     side="Buy"
@@ -66,17 +69,27 @@ def trade_rand():
 # for i in range(1000):
 #     trade_rand()
 flip = False
-
+time_start = time.time()
 time_old = time.time()
 time_old2 = time.time()
+msgs = 0
 
+# trade_rand()
+# print(ws.recv())
 while True:    
     if(time.time() - time_old > 3):
         ws.ping()
         print(time.time() - time_old)
         time_old = time.time()
-    if(time.time() - time_old2 > 0.01):
-        trade_rand()
-        time_old2 = time.time()
-        print(ws.recv())
+        
+        # goal should be ~1M/S (i.e. <1us per order server side)
+    # this runs @6700 req/sec, server is fine after removing sync arbiter issue.  
+    # if(time.time() - time_old2 > 0.00001):
+    trade_rand()
+    time_old2 = time.time()
+    el = time_old2 - time_start
+    msgs += 1
+    print("msg/sec:", msgs/el)
+    print("total msgs sent: ", msgs)
+    print(ws.recv())
     # time.sleep(0.1)    
