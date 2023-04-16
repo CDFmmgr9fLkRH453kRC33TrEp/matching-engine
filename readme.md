@@ -98,3 +98,4 @@ Also makes modelling a bit more interesting/open-ended, as people can be creativ
 ## Todo:
 * convert global state to actor which has a list of all trader account addresses to send messages to etc.
 * convert trader accounts to actix actors which register new streams as connections are made or dropped
+* get rid of broker for broadcasting execution data, should send to main actor which fairly sends to all connected actors. 
