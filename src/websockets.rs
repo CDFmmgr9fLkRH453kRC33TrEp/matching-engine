@@ -15,7 +15,7 @@ use std::f32::consts::E;
 use std::fmt::format;
 use std::net::Ipv4Addr;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use strum::IntoEnumIterator; // 0.17.1
 use strum_macros::EnumIter; // 0.17.1
@@ -68,10 +68,13 @@ fn add_order(
     order_request: crate::orderbook::OrderRequest,
     data: &web::Data<crate::macro_calls::GlobalOrderBookState>,
     accounts_data: &web::Data<crate::macro_calls::GlobalAccountState>,
+    // start_time: &web::Data<SystemTime>,
 ) -> String {
     info!("Add Order Triggered!");
+
     let order_request_inner = order_request;
     let symbol = &order_request_inner.symbol;
+
     // Todo: refactor into match statement, put into actix guard?
     if (order_request_inner.order_type == crate::orderbook::OrderType::Buy) {
         // ISSUE: This should decrement cents_balance to avoid racing to place two orders before updating cents_balance
@@ -188,6 +191,8 @@ pub struct MyWebSocketActor {
     hb: Instant,
     global_account_state: web::Data<crate::macro_calls::GlobalAccountState>,
     global_orderbook_state: web::Data<crate::macro_calls::GlobalOrderBookState>,
+    start_time: web::Data<SystemTime>,
+    t_orders: usize,
 }
 
 impl MyWebSocketActor {
@@ -241,6 +246,7 @@ pub async fn websocket(
     stream: web::Payload,
     orderbook_data: web::Data<crate::macro_calls::GlobalOrderBookState>,
     accounts_data: web::Data<crate::macro_calls::GlobalAccountState>,
+    start_time: web::Data<SystemTime>,
 ) -> Result<HttpResponse, Error> {
     log::info!("New websocket connection with peer_addr");
     let conninfo = req.connection_info().clone();
@@ -265,6 +271,8 @@ pub async fn websocket(
             hb: Instant::now(),
             global_account_state: accounts_data.clone(),
             global_orderbook_state: orderbook_data.clone(),
+            start_time: start_time.clone(),
+            t_orders: 0,
         },
         &req,
         stream,
@@ -280,7 +288,6 @@ impl Actor for MyWebSocketActor {
         self.subscribe_system_async::<orderbook::LimLevUpdate>(ctx);
         debug!("Subscribed");
         self.hb(ctx);
- 
     }
 
     fn stopped(&mut self, ctx: &mut Self::Context) {
@@ -339,7 +346,7 @@ impl Handler<orderbook::LimLevUpdate> for MyWebSocketActor {
         debug!("LimLevUpdate Message Received");
         // msg.print_book_state();
 
-        ctx.text(format!("{:?}", serde_json::to_string(&msg).unwrap()));
+        ctx.text(serde_json::to_string(&msg).unwrap());
     }
 }
 
@@ -349,7 +356,6 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
     // and sends out all fill messages in the trader account's queue
 
     fn finished(&mut self, ctx: &mut Self::Context) {
-
         ctx.stop()
     }
 
@@ -381,9 +387,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                 .lock()
                 .unwrap()
                 .current_actor;
-        
-            match curr_actor {                
-                Some(x) => {                    
+
+            match curr_actor {
+                Some(x) => {
                     if (connection_ip
                         != env::var("GRAFANAIP")
                             .expect("$GRAFANAIP is not set")
@@ -391,9 +397,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                             .unwrap())
                     {
                         // FOR SOME REASON THIS IS NOT WORKING -- STILL EXECUTES ORDERS
-                        error!("Trader_id already has websocket connected");                        
+                        error!("Trader_id already has websocket connected");
                         // ctx.stop();
-                        ctx.stop();                                                
+                        ctx.stop();
                     }
                 }
                 None => *curr_actor = Some(ctx.address()),
@@ -438,8 +444,13 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
     // for the `hb()` function to maintain the connection status.
     fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         // if self.connection_ip != env::var("GRAFANAIP").expect("GRAFANAIP not set").parse::<TraderIp>().unwrap() {
+        let t_start = SystemTime::now();
+        self.t_orders += 1;
+        info!("total msgs received:{:?}", self.t_orders);
+
         match msg {
             Ok(ws::Message::Text(msg)) => {
+                let t_start_o = SystemTime::now();
                 // handle incoming JSON as usual.
                 let d = &msg.to_string();
                 let t: OrderRequest = serde_json::from_str(d).unwrap();
@@ -458,15 +469,53 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                     ctx.text("invalid ip for provided trader id.");
                     // ctx.close(None);
                 } else {
+                    let symbol = t.clone().symbol;
+
                     let res =
                         add_order(t, &self.global_orderbook_state, &self.global_account_state);
+
+                    let t_elp = t_start_o.elapsed().unwrap();
+                    info!("secs for last order (inside match): {:?}", t_elp);
+                    self.global_orderbook_state
+                        .index_ref(&symbol.clone())
+                        .lock()
+                        .unwrap()
+                        .running_orders_total += 1;
+
+                    let t_o = self
+                        .global_orderbook_state
+                        .index_ref(&symbol.clone())
+                        .lock()
+                        .unwrap()
+                        .running_orders_total;
+
+                    let secs_elapsed = self
+                        .start_time
+                        .clone()
+                        .into_inner()
+                        .as_ref()
+                        .elapsed()
+                        .unwrap();
+                    info!(
+                        "time_elapsed from start: {:?}",
+                        usize::try_from(secs_elapsed.as_secs()).unwrap()
+                    );
+                    info!("total orders processed:{:?}", t_o);
+                    info!(
+                        "orders/sec: {:?}",
+                        t_o / usize::try_from(secs_elapsed.as_secs()).unwrap()
+                    );
+
                     // println!("{}", res);
                     // let msg = self.global_orderbook_state.index_ref(&t.symbol).lock().unwrap().to_owned();
                     // debug!("Issuing Async Msg");
                     // Broker::<SystemBroker>::issue_async(msg);
                     // debug!("Issued Async Msg");
                     // println!("{:?}", serde_json::to_string_pretty(&t));
-                    ctx.text(res)
+
+                    // measured @~14microseconds.
+                    // for some reason goes up as more orders are added :(
+                    ctx.text(res);
                 }
             }
 
@@ -492,15 +541,16 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                 // .lock()
                 // .unwrap()
                 // .current_actor = None;
-                error!("Received close message, closing context.");                
+                error!("Received close message, closing context.");
                 ctx.close(reason);
                 // ctx.stop();
             }
             _ => {
                 error!("Error reading message, stopping context.");
                 ctx.stop();
-            }
-            // }
+            } // }
         }
+        let t_elp = t_start.elapsed().unwrap();
+        info!("secs for last request: {:?}", t_elp);
     }
 }
