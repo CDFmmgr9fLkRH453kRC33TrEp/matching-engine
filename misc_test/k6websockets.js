@@ -4,44 +4,75 @@ import { check } from 'k6';
 // maxes out around 10.7k/s
 
 export let options = {
-  stages: [
-    { duration: '3s', target: 1 },
-    { duration: '3s', target: 0 },
-  ],
+  scenarios: {
+    trader1: {
+      exec: 'buy_order',
+      executor: 'constant-vus',
+      vus: 1,
+      duration: '3s',
+      gracefulStop: '2s',
+      env: {
+        URL: 'ws://127.16.123.1:4000/orders/ws',
+        TRADERID: 'Columbia_A',
+      }
+    },
+    trader2: {
+      exec: 'buy_order',
+      executor: 'constant-vus',
+      vus: 1,
+      duration: '3s',
+      gracefulStop: '2s',
+      env: {
+        URL: 'ws://127.16.123.2:4000/orders/ws',
+        TRADERID: 'Columbia_B',
+      }
+    },
+    trader3: {
+      exec: 'buy_order',
+      executor: 'constant-vus',
+      vus: 1,
+      duration: '3s',
+      gracefulStop: '2s',
+      env: {
+        URL: 'ws://127.16.123.3:4000/orders/ws',
+        TRADERID: 'Columbia_C',
+      }
+    },
+    trader4: {
+      exec: 'buy_order',
+      executor: 'constant-vus',
+      vus: 1,
+      duration: '3s',
+      gracefulStop: '2s',
+      env: {
+        URL: 'ws://127.16.123.4:4000/orders/ws',
+        TRADERID: 'Columbia_D',
+      }
+    }
+  },
 };
 
-export default function () {
-  const text = JSON.stringify({    
-        'OrderType': "Buy",
-        'Amount': 1,
-        'Price': 1,
-        'Symbol': "AAPL",
-        'TraderId': "Columbia_A",
-  })
-  // public websocket server for quick test
-  //const url = 'wss://javascript.info/article/websocket/demo/hello';
-  const url = 'ws://127.16.123.1:4000/orders/ws';    // local websocket server
+function getRandomInt(max) {
+  return Math.floor(Math.random() * max);
+}
 
-  const res = ws.connect(url, null, function (socket) {
+export function buy_order() {
+  // url = __ENV.URL;
+  // url = 'ws://127.16.123.1:4000/orders/ws';
+  const res = ws.connect(__ENV.URL, null, function (socket) {
     socket.on('open', function open() {
-      console.log('connected');
+      console.log('connected')
       socket.setInterval(function interval() {
-        socket.send(text);
-        // console.log('Order sent: ', text);
-      }, .0001);
+        
+        socket.send(JSON.stringify({
+          'OrderType': Math.random() < 0.5 ? "Buy" : "Sell",
+          'Amount': 1 + getRandomInt(9),
+          'Price': 1 + getRandomInt(9),
+          'Symbol': "AAPL",
+          'TraderId': __ENV.TRADERID,
+        }));
+      }, .01);
     });
-
-    socket.on('message', function message(data) {
-    //   console.log('Message received: ', data);
-    //   check(data, { 'data is correct': (r) => r && r === text });
-    });
-
-    socket.on('close', () => console.log('disconnected'));
-
-    socket.setTimeout(function () {
-      console.log('5 seconds passed, closing the socket');
-      socket.close();
-    }, 5000);
   });
 
   check(res, { 'status is 101': (r) => r && r.status === 101 });

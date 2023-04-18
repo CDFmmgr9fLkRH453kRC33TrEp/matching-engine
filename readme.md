@@ -1,7 +1,13 @@
 # Rust Matching Engine, Limit Order Book, and Exchange Simulator
 Simplistic exchange simulator with in memory order book and multi asset credit limit enforcement.
 
-As of 4/17, maxes out around 56k order requests processed per second for 1 trader. Actual orderbook is fast, unsuprisingly networking and io are the culprits, I think.
+As of 4/17, maxes out around 50k order requests processed (with trades occuring) per second per trader. Tested up to 4 seperate traders (i.e. ~200k orders/sec processed).
+
+LAN Ethernet Data Transfer Speed is around ~100MB/s, current performance is ~16MB/s, so plenty of room to improve software. I think LAN wifi is ~20MB/s. After that I think we start to get into multicast/switch hardware territory. 
+
+Also we can probably shrink packet size as it's in JSON rn, still need to implement ITCH instead.
+
+Actual orderbook is fast, unsuprisingly networking and io are the culprits, I think. Handle order request has ~1.6% on flamegraph, deserialization is ~1.7%. 
 
 ![Video example of exchange](docs/output.gif "Simple example with two actors and assets")
 

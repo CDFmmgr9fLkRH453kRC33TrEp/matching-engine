@@ -289,18 +289,18 @@ impl OrderBook {
                     sell_order.amount -= amount_to_be_traded;
                     self.buy_side_limit_levels[current_price_level].orders[0].amount -=
                         amount_to_be_traded;
-                    warn!(
-                        "Buy side @price {:?} total_volume: {:?}",
-                        current_price_level,
-                        self.buy_side_limit_levels[current_price_level].total_volume
-                    );
-                    warn!("Amount to be traded: {:?}", amount_to_be_traded);
-                    self.buy_side_limit_levels[current_price_level].total_volume -=
-                        amount_to_be_traded;
-                    debug!(
-                        "orders: {:?}",
-                        self.sell_side_limit_levels[current_price_level].orders
-                    );
+                    // warn!(
+                    //     "Buy side @price {:?} total_volume: {:?}",
+                    //     current_price_level,
+                    //     self.buy_side_limit_levels[current_price_level].total_volume
+                    // );
+                    // warn!("Amount to be traded: {:?}", amount_to_be_traded);
+                    // self.buy_side_limit_levels[current_price_level].total_volume -=
+                    //     amount_to_be_traded;
+                    // debug!(
+                    //     "orders: {:?}",
+                    //     self.sell_side_limit_levels[current_price_level].orders
+                    // );
                     debug!("limit level: {:?}", current_price_level);
                     if self.buy_side_limit_levels[current_price_level].orders[0].amount == 0 {
                         self.buy_side_limit_levels[current_price_level]
@@ -322,7 +322,7 @@ impl OrderBook {
                             .subsec_nanos() as usize,
                     });
                 }
-
+                // overflow issues
                 current_price_level -= 1;
             }
             // To do: find a more elegant way to avoid "skipping" price levels on the way down.
@@ -391,10 +391,10 @@ impl OrderBook {
                     & (buy_order.amount > 0)
                 {
                     debug!("remain to fill {:?}", buy_order.amount);
-                    debug!(
-                        "{:?}",
-                        self.sell_side_limit_levels[current_price_level].orders
-                    );
+                    // debug!(
+                    //     "{:?}",
+                    //     self.sell_side_limit_levels[current_price_level].orders
+                    // );
                     let trade_price =
                         self.sell_side_limit_levels[current_price_level].orders[0].price;
                     let sell_trader_id =

@@ -320,7 +320,7 @@ impl Handler<Arc<orderbook::LimLevUpdate>> for MyWebSocketActor {
     type Result = ();
 
     fn handle(&mut self, msg: Arc<orderbook::LimLevUpdate>, ctx: &mut Self::Context) {
-        debug!("LimLevUpdate Message Received");
+        // debug!("LimLevUpdate Message Received");
         // msg.print_book_state()
         ctx.text(serde_json::to_string(&(*msg).clone()).unwrap());
     }
