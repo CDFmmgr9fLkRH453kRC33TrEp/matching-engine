@@ -1,7 +1,7 @@
 # Rust Matching Engine, Limit Order Book, and Exchange Simulator
 Simplistic exchange simulator with in memory order book and multi asset credit limit enforcement.
 
-As of 4/17, maxes out around 50k order requests processed (with trades occuring) per second per trader. Tested up to 4 seperate traders (i.e. ~200k orders/sec processed).
+As of 4/17, maxes out around 50k order requests processed (with trades occuring) per second per trader (i.e. 20 microseconds/trade request round trip). Tested up to 4 seperate traders (i.e. ~200k orders/sec processed).
 
 LAN Ethernet Data Transfer Speed is around ~100MB/s, current performance is ~16MB/s, so plenty of room to improve software. I think LAN wifi is ~20MB/s. After that I think we start to get into multicast/switch hardware territory. 
 
