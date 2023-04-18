@@ -18,6 +18,8 @@ fn main() {
     [
         Columbia_A,
         Columbia_B,
+        Columbia_C,
+        Columbia_D,
         Columbia_Viz
     ]
     ";
@@ -48,7 +50,11 @@ pub fn ip_to_id (ip: Ipv4Addr) -> Result<crate::macro_calls::TraderId, io::Error
         return Ok(crate::macro_calls::TraderId::Columbia_A);
     }} else if (ip == Ipv4Addr::new(127,16,123,2)){{
         return Ok(crate::macro_calls::TraderId::Columbia_B);
-    }} else if (ip == Ipv4Addr::new(127,16,123,0)){{
+    }}else if (ip == Ipv4Addr::new(127,16,123,3)){{
+        return Ok(crate::macro_calls::TraderId::Columbia_C);
+    }} else if (ip == Ipv4Addr::new(127,16,123,4)){{
+        return Ok(crate::macro_calls::TraderId::Columbia_D);
+    }}  else if (ip == Ipv4Addr::new(127,16,123,0)){{
         return Ok(crate::macro_calls::TraderId::Columbia_Viz);
     }} else {{
         panic!(\"not a known ip\");

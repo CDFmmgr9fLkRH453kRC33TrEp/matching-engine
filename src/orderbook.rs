@@ -1,4 +1,5 @@
 use crate::accounts;
+use crate::connection_server;
 use crate::macro_calls;
 use crate::macro_calls::TickerSymbol;
 use queues;
@@ -228,16 +229,18 @@ impl OrderBook {
         &mut self,
         new_order_request: OrderRequest,
         accounts_data: &web::Data<macro_calls::GlobalAccountState>,
+        relay_server_addr: &web::Data<Addr<connection_server::Server>>
     ) -> Option<Uuid> {
         match new_order_request.order_type {
-            OrderType::Buy => self.handle_incoming_buy(new_order_request, accounts_data),
-            OrderType::Sell => self.handle_incoming_sell(new_order_request, accounts_data),
+            OrderType::Buy => self.handle_incoming_buy(new_order_request, accounts_data, relay_server_addr),
+            OrderType::Sell => self.handle_incoming_sell(new_order_request, accounts_data, relay_server_addr),
         }
     }
     fn handle_incoming_sell(
         &mut self,
         mut sell_order: OrderRequest,
         accounts_data: &web::Data<macro_calls::GlobalAccountState>,
+        relay_server_addr: &web::Data<Addr<connection_server::Server>>,
     ) -> Option<Uuid> {
         debug!(
             "Incoming sell, current high buy {:?}",
@@ -307,7 +310,7 @@ impl OrderBook {
 
                     // order_index += 1;
                     // issue async is the culprit hanging up performance
-                    Broker::<SystemBroker>::issue_async(LimLevUpdate {
+                    relay_server_addr.do_send(LimLevUpdate {
                         level: current_price_level,
                         total_order_vol: self.buy_side_limit_levels[current_price_level]
                             .total_volume,
@@ -341,7 +344,18 @@ impl OrderBook {
             self.sell_side_limit_levels[sell_order.price].total_volume += sell_order.amount;
             // self.print_book_state();
             // issue async is the culprit hanging up performance
-            Broker::<SystemBroker>::issue_async(LimLevUpdate {
+            relay_server_addr.do_send(LimLevUpdate {
+                level: sell_order.price,
+                total_order_vol: self.sell_side_limit_levels[sell_order.price].total_volume,
+                side: OrderType::Sell,
+                symbol: self.symbol,
+                timestamp: SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("System Time Error")
+                    .subsec_nanos() as usize,
+            });
+            debug!("Sending LimLevUpdate to relay server.");
+            relay_server_addr.do_send(LimLevUpdate {
                 level: sell_order.price,
                 total_order_vol: self.sell_side_limit_levels[sell_order.price].total_volume,
                 side: OrderType::Sell,
@@ -361,6 +375,7 @@ impl OrderBook {
         &mut self,
         mut buy_order: OrderRequest,
         accounts_data: &web::Data<macro_calls::GlobalAccountState>,
+        relay_server_addr:&web::Data<Addr<connection_server::Server>>
     ) -> Option<Uuid> {
         debug!(
             "Incoming Buy, current low sell {:?}",
@@ -423,7 +438,7 @@ impl OrderBook {
                     // order_index += 1;
 
                     // issue async is the culprit hanging up performance
-                    Broker::<SystemBroker>::issue_async(LimLevUpdate {
+                    relay_server_addr.do_send(LimLevUpdate {
                         level: current_price_level,
                         total_order_vol: self.sell_side_limit_levels[current_price_level]
                             .total_volume,
@@ -469,7 +484,7 @@ impl OrderBook {
             );
             debug!("Sending LimLevUpdate");
             // issue async is the culprit hanging up performance
-            Broker::<SystemBroker>::issue_async(LimLevUpdate {
+            relay_server_addr.do_send(LimLevUpdate {
                 level: buy_order.price,
                 total_order_vol: self.buy_side_limit_levels[buy_order.price].total_volume,
                 side: OrderType::Buy,

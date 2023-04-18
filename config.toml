@@ -1,3 +1,4 @@
 [env]
-RUST_LOG = { value = "info", force = true }
-CARGO_LOG = { value = "info", force = true }
+RUST_LOG = { value = "debug", force = true }
+CARGO_LOG = { value = "debug", force = true }
+CARGO_PROFILE_RELEASE_DEBUG=true

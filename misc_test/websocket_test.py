@@ -74,22 +74,23 @@ time_old = time.time()
 time_old2 = time.time()
 msgs = 0
 
-# trade_rand()
-# print(ws.recv())
-while True:    
-    if(time.time() - time_old > 3):
-        ws.ping()
-        print(time.time() - time_old)
-        time_old = time.time()
-        
-        # goal should be ~1M/S (i.e. <1us per order server side)
-    # this runs @6700 req/sec, server is fine after removing sync arbiter issue.  
-    # if(time.time() - time_old2 > 0.00001):
-    trade_rand()
-    time_old2 = time.time()
-    el = time_old2 - time_start
-    msgs += 1
-    print("msg/sec:", msgs/el)
-    print("total msgs sent: ", msgs)
+trade_rand()
+while True: 
     print(ws.recv())
-    # time.sleep(0.1)    
+# while True:    
+#     if(time.time() - time_old > 3):
+#         ws.ping()
+#         print(time.time() - time_old)
+#         time_old = time.time()
+        
+#         # goal should be ~1M/S (i.e. <1us per order server side)
+#     # this runs @6700 req/sec, server is fine after removing sync arbiter issue.  
+#     # if(time.time() - time_old2 > 0.00001):
+#     trade_rand()
+#     time_old2 = time.time()
+#     el = time_old2 - time_start
+#     msgs += 1
+#     print("msg/sec:", msgs/el)
+#     print("total msgs sent: ", msgs)
+#     print(ws.recv())
+#     # time.sleep(0.1)    

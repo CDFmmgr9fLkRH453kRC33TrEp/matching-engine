@@ -24,6 +24,7 @@ use actix_broker::{ArbiterBroker, Broker, BrokerIssue, BrokerSubscribe, SystemBr
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(4);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
+use crate::message_types::OpenMessage;
 use crate::orderbook::Fill;
 use crate::websockets::ws::CloseCode::Policy;
 use crate::websockets::ws::CloseReason;
@@ -69,8 +70,9 @@ fn add_order(
     data: &web::Data<crate::macro_calls::GlobalOrderBookState>,
     accounts_data: &web::Data<crate::macro_calls::GlobalAccountState>,
     // start_time: &web::Data<SystemTime>,
+    relay_server_addr: &web::Data<Addr<crate::connection_server::Server>>,
 ) -> String {
-    info!("Add Order Triggered!");
+    debug!("Add Order Triggered!");
 
     let order_request_inner = order_request;
     let symbol = &order_request_inner.symbol;
@@ -110,7 +112,7 @@ fn add_order(
             .unwrap()
             < order_request_inner.amount)
         {
-            info!("E");
+            debug!("Error: attempted short sell");
             return String::from(
                 "Error Placing Order: The total amount of this trade would take your account short",
             );
@@ -156,8 +158,8 @@ fn add_order(
         .index_ref(&symbol.clone())
         .lock()
         .unwrap()
-        .handle_incoming_order_request(order_request_inner.clone(), accounts_data);
-    let book_state = data.index_ref(symbol).lock().unwrap();
+        .handle_incoming_order_request(order_request_inner.clone(), accounts_data, relay_server_addr);
+    // let book_state = data.index_ref(symbol).lock().unwrap();
 
     match order_id {
         Some(inner) => return inner.hyphenated().to_string(),
@@ -186,48 +188,17 @@ async fn cancel_order(
 }
 
 pub struct MyWebSocketActor {
-    // includes
     connection_ip: TraderIp,
     hb: Instant,
     global_account_state: web::Data<crate::macro_calls::GlobalAccountState>,
     global_orderbook_state: web::Data<crate::macro_calls::GlobalOrderBookState>,
+    // for testing. 
     start_time: web::Data<SystemTime>,
     t_orders: usize,
+    relay_server_addr: web::Data<Addr<crate::connection_server::Server>>,
 }
 
 impl MyWebSocketActor {
-    // pub fn new() -> Self {
-    //     // go through message queue and send all outstanding messages
-    //     Self {
-    //         hb: Instant::now(),
-    //         global_orderbook_state: web::Data::new(crate::macro_calls::GlobalOrderBookState {
-    //             AAPL: Mutex::new(quickstart_order_book(
-    //                 crate::macro_calls::TickerSymbol::AAPL,
-    //                 0,
-    //                 11,
-    //             )),
-    //             JNJ: Mutex::new(quickstart_order_book(
-    //                 crate::macro_calls::TickerSymbol::JNJ,
-    //                 0,
-    //                 11,
-    //             )),
-    //         }),
-
-    //         global_account_state: web::Data::new(crate::macro_calls::GlobalAccountState {
-    //             Columbia_A: Mutex::new(crate::accounts::quickstart_trader_account(
-    //                 crate::macro_calls::TraderId::Columbia_A,
-    //                 10,
-    //             )),
-    //             Columbia_B: Mutex::new(crate::accounts::quickstart_trader_account(
-    //                 crate::macro_calls::TraderId::Columbia_B,
-    //                 10,
-    //             )),
-    //         }),
-    //     }
-    // }
-    // This function will run on an interval, every 5 seconds to check
-    // that the connection is still alive. If it's been more than
-    // 10 seconds since the last ping, we'll close the connection.
     fn hb(&self, ctx: &mut <Self as Actor>::Context) {
         ctx.run_interval(HEARTBEAT_INTERVAL, |act, ctx| {
             if Instant::now().duration_since(act.hb) > CLIENT_TIMEOUT {
@@ -247,8 +218,8 @@ pub async fn websocket(
     orderbook_data: web::Data<crate::macro_calls::GlobalOrderBookState>,
     accounts_data: web::Data<crate::macro_calls::GlobalAccountState>,
     start_time: web::Data<SystemTime>,
+    relay_server_addr: web::Data<Addr<crate::connection_server::Server>>,
 ) -> Result<HttpResponse, Error> {
-    log::info!("New websocket connection with peer_addr");
     let conninfo = req.connection_info().clone();
     log::info!(
         "New websocket connection with peer_addr {:?}",
@@ -273,6 +244,7 @@ pub async fn websocket(
             global_orderbook_state: orderbook_data.clone(),
             start_time: start_time.clone(),
             t_orders: 0,
+            relay_server_addr: relay_server_addr.clone(),
         },
         &req,
         stream,
@@ -285,7 +257,12 @@ impl Actor for MyWebSocketActor {
     // Start the heartbeat process for this connection
     fn started(&mut self, ctx: &mut Self::Context) {
         self.subscribe_system_async::<orderbook::OrderBook>(ctx);
-        self.subscribe_system_async::<orderbook::LimLevUpdate>(ctx);
+        // self.subscribe_system_async::<orderbook::LimLevUpdate>(ctx);
+        self.relay_server_addr.do_send(OpenMessage{
+            ip : self.connection_ip,
+            id: crate::macro_calls::ip_to_id(self.connection_ip).unwrap(), 
+            addr: ctx.address().recipient()
+        });
         debug!("Subscribed");
         self.hb(ctx);
     }
@@ -339,14 +316,13 @@ impl Handler<orderbook::OrderBook> for MyWebSocketActor {
     }
 }
 
-impl Handler<orderbook::LimLevUpdate> for MyWebSocketActor {
+impl Handler<Arc<orderbook::LimLevUpdate>> for MyWebSocketActor {
     type Result = ();
 
-    fn handle(&mut self, msg: orderbook::LimLevUpdate, ctx: &mut Self::Context) {
+    fn handle(&mut self, msg: Arc<orderbook::LimLevUpdate>, ctx: &mut Self::Context) {
         debug!("LimLevUpdate Message Received");
-        // msg.print_book_state();
-
-        ctx.text(serde_json::to_string(&msg).unwrap());
+        // msg.print_book_state()
+        ctx.text(serde_json::to_string(&(*msg).clone()).unwrap());
     }
 }
 
@@ -446,7 +422,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
         // if self.connection_ip != env::var("GRAFANAIP").expect("GRAFANAIP not set").parse::<TraderIp>().unwrap() {
         let t_start = SystemTime::now();
         self.t_orders += 1;
-        info!("total msgs received:{:?}", self.t_orders);
+        debug!("total msgs received:{:?}", self.t_orders);
 
         match msg {
             Ok(ws::Message::Text(msg)) => {
@@ -472,10 +448,10 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                     let symbol = t.clone().symbol;
 
                     let res =
-                        add_order(t, &self.global_orderbook_state, &self.global_account_state);
+                        add_order(t, &self.global_orderbook_state, &self.global_account_state, &self.relay_server_addr);
 
                     let t_elp = t_start_o.elapsed().unwrap();
-                    info!("secs for last order (inside match): {:?}", t_elp);
+                    debug!("secs for last order (inside match): {:?}", t_elp);
                     self.global_orderbook_state
                         .index_ref(&symbol.clone())
                         .lock()
@@ -496,12 +472,12 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                         .as_ref()
                         .elapsed()
                         .unwrap();
-                    info!(
+                    debug!(
                         "time_elapsed from start: {:?}",
                         usize::try_from(secs_elapsed.as_secs()).unwrap()
                     );
-                    info!("total orders processed:{:?}", t_o);
-                    info!(
+                    debug!("total orders processed:{:?}", t_o);
+                    debug!(
                         "orders/sec: {:?}",
                         t_o / usize::try_from(secs_elapsed.as_secs()).unwrap()
                     );
@@ -551,6 +527,6 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
             } // }
         }
         let t_elp = t_start.elapsed().unwrap();
-        info!("secs for last request: {:?}", t_elp);
+        debug!("secs for last request: {:?}", t_elp);
     }
 }

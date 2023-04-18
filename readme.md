@@ -1,7 +1,7 @@
 # Rust Matching Engine, Limit Order Book, and Exchange Simulator
 Simplistic exchange simulator with in memory order book and multi asset credit limit enforcement.
 
-As of 4/16, maxes out around 10k orders processed per second for 1 trader. 
+As of 4/17, maxes out around 56k orders processed per second for 1 trader. 
 
 ![Video example of exchange](docs/output.gif "Simple example with two actors and assets")
 

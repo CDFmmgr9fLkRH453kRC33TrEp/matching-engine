@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 extern crate env_logger;
 use std::net::Ipv4Addr;
-
+use actix::Actor;
 
 extern crate pretty_env_logger;
 #[macro_use] extern crate log;
@@ -13,6 +13,8 @@ mod orderbook;
 mod accounts;
 mod macro_calls;
 mod websockets;
+mod connection_server;
+mod message_types;
 
 use std::time::SystemTime;
 
@@ -43,6 +45,12 @@ async fn main() -> std::io::Result<()> {
     let start_time = web::Data::new(SystemTime::now());
     pretty_env_logger::init();
     info!("Starting");
+
+
+    // should start main server actor here, and pass in as cloned app data to websocket endpoint
+    let relay_server = connection_server::Server::new().start();
+
+
     // to do: add actix guards to confirm correctly formed requests etc. 
     // to do: add actix guards to confirm credit checks etc. 
     // to do: move this declaration to macro_calls file to generate fields automatically
@@ -81,6 +89,7 @@ async fn main() -> std::io::Result<()> {
             web::scope("/orders")            
             .app_data(global_orderbook_state.clone()) // <- register the created data
             .app_data(global_account_state.clone()) // <- register the created data
+            .app_data(web::Data::new(relay_server.clone()))
             .app_data(start_time.clone())
             .route("/ws", web::get().to(websockets::websocket))
             // .route("/grafana", web::get().to(websockets::websocket))
@@ -89,6 +98,8 @@ async fn main() -> std::io::Result<()> {
             // .route("/cancelOrder", web::post().to(cancel_order)), 
         )
     })
+    // todo: add multiple workers here
+    // .workers(2)
     .bind(("0.0.0.0", 4000))?
     .run()
     .await
