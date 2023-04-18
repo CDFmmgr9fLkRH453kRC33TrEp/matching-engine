@@ -5,7 +5,12 @@ As of 4/17, maxes out around 50k order requests processed (with trades occuring)
 
 LAN Ethernet Data Transfer Speed is around ~100MB/s, current performance is ~16MB/s, so plenty of room to improve software. I think LAN wifi is ~20MB/s. After that I think we start to get into multicast/switch hardware territory. 
 
-Also we can probably shrink packet size as it's in JSON rn, still need to implement ITCH instead.
+Also we can probably shrink packet size as it's in JSON rn, still need to implement ITCH instead. This should also drastically reduce deserialization times which is ~50% of order handling. ![See here for excellent example](https://github.com/adwhit/itchy-rust)
+
+Rough calcs: 
+
+(100 Mbps lan over wifi throughput)/(19bytes/itch message) ~ 657,000 orders/sec (~1.5 microseconds)
+(10000 Mbps lan over nice ethernet throughput)/(19bytes/itch message) ~ 65,700,000 orders/sec (~15ns)
 
 Actual orderbook is fast, unsuprisingly networking and io are the culprits, I think. Handle order request has ~1.6% on flamegraph, deserialization is ~1.7%. 
 
