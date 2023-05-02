@@ -54,6 +54,8 @@ The rate limiting is done per account rather than per asset (?)
 ## Resources/Further Reading
 (Generally tried to sort from most to least useful)
 
+https://javarevisited.blogspot.com/2011/01/basics-of-fix-protcol-and-fix-engine.html
+
 https://web.archive.org/web/20110219163448/http://howtohft.wordpress.com/2011/02/15/how-to-build-a-fast-limit-order-book/
 
 https://web.archive.org/web/20110219163418/http://howtohft.wordpress.com/2011/02/15/building-a-trading-system-general-considerations/
