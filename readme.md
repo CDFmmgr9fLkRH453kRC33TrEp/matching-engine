@@ -109,3 +109,5 @@ Also makes modelling a bit more interesting/open-ended, as people can be creativ
 ## Todo:
 * convert global state to actor which has a list of all trader account addresses to send messages to etc.
 * convert trader accounts to actix actors which register new streams as connections are made or dropped
+* implement custom parsing for fields returned by parser::parse_bytes() 
+* revamp build script/macros to define traders and assets at compile time
