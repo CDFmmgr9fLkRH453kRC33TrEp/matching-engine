@@ -36,6 +36,9 @@ queues = "1.0.2"
 # sending fill messages between accounts.
 actix-broker = "0.4.3"
 
+# parser
+fefix = {version="0.7.0", features = ["fix42"]}
+prefix = "1.0.4"
 # macro help
 strum = "0.24.1"
 strum_macros = "0.24.3"

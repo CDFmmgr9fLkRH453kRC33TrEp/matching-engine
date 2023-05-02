@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use actix::prelude::*;
+use std::sync::atomic::Ordering;
 
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
 use std::cmp;
@@ -16,7 +17,9 @@ use std::fmt;
 use std::sync::Mutex;
 // use std::fmt::Display;
 use uuid::Uuid;
-pub type OrderID = uuid::Uuid;
+// should be switched to atomic usize
+use core::sync::atomic::AtomicUsize;
+pub type OrderID = usize;
 pub type Price = usize;
 pub type TraderId = macro_calls::TraderId;
 // for loading csv test files
@@ -110,7 +113,7 @@ pub struct OrderRequest {
 #[derive(Debug, Clone, Serialize)]
 pub struct Order {
     /// Struct representing an existing order in the order book
-    pub order_id: Uuid,
+    pub order_id: OrderID,
     pub trader_id: TraderId,
     pub symbol: macro_calls::TickerSymbol,
     pub amount: usize,
@@ -145,9 +148,11 @@ impl Message for Fill {
     type Result = ();
 }
 impl OrderBook {
-    fn add_order_to_book(&mut self, new_order_request: OrderRequest) -> Uuid {
+    fn add_order_to_book(&mut self, new_order_request: OrderRequest, order_counter: &web::Data<Arc<AtomicUsize>>) -> OrderID {
         debug!("add_order_to_book trigger");
-        let order_id = Uuid::new_v4();
+        // uuid creation is taking non negligible time
+        let order_id = order_counter.fetch_add(1, Ordering::Relaxed);
+        debug!("curr_order_id: {:?}", order_id);
         let new_order = Order {
             order_id: order_id,
             trader_id: new_order_request.trader_id,
@@ -180,6 +185,7 @@ impl OrderBook {
     pub fn handle_incoming_cancel_request(
         &mut self,
         cancel_request: CancelRequest,
+        order_counter: &web::Data<Arc<AtomicUsize>>
     ) -> Option<Order> {
         debug!("remove_order_by_uuid trigger");
         match cancel_request.side {
@@ -229,11 +235,12 @@ impl OrderBook {
         &mut self,
         new_order_request: OrderRequest,
         accounts_data: &web::Data<macro_calls::GlobalAccountState>,
-        relay_server_addr: &web::Data<Addr<connection_server::Server>>
-    ) -> Option<Uuid> {
+        relay_server_addr: &web::Data<Addr<connection_server::Server>>,
+        order_counter: &web::Data::<Arc<AtomicUsize>>
+    ) -> Option<OrderID> {
         match new_order_request.order_type {
-            OrderType::Buy => self.handle_incoming_buy(new_order_request, accounts_data, relay_server_addr),
-            OrderType::Sell => self.handle_incoming_sell(new_order_request, accounts_data, relay_server_addr),
+            OrderType::Buy => self.handle_incoming_buy(new_order_request, accounts_data, relay_server_addr, order_counter),
+            OrderType::Sell => self.handle_incoming_sell(new_order_request, accounts_data, relay_server_addr, order_counter),
         }
     }
     fn handle_incoming_sell(
@@ -241,7 +248,8 @@ impl OrderBook {
         mut sell_order: OrderRequest,
         accounts_data: &web::Data<macro_calls::GlobalAccountState>,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
-    ) -> Option<Uuid> {
+        order_counter: &web::Data<Arc<AtomicUsize>>,
+    ) -> Option<OrderID> {
         debug!(
             "Incoming sell, current high buy {:?}",
             self.current_high_buy_price
@@ -340,7 +348,7 @@ impl OrderBook {
         // will be changed to beam out book state to subscribers
 
         if sell_order.amount > 0 {
-            let resting_order_id = self.add_order_to_book(sell_order);
+            let resting_order_id = self.add_order_to_book(sell_order, order_counter);
             self.sell_side_limit_levels[sell_order.price].total_volume += sell_order.amount;
             // self.print_book_state();
             // issue async is the culprit hanging up performance
@@ -375,8 +383,9 @@ impl OrderBook {
         &mut self,
         mut buy_order: OrderRequest,
         accounts_data: &web::Data<macro_calls::GlobalAccountState>,
-        relay_server_addr:&web::Data<Addr<connection_server::Server>>
-    ) -> Option<Uuid> {
+        relay_server_addr:&web::Data<Addr<connection_server::Server>>,
+        order_counter: &web::Data<Arc<AtomicUsize>>,
+    ) -> Option<OrderID> {
         debug!(
             "Incoming Buy, current low sell {:?}",
             self.current_low_sell_price
@@ -471,7 +480,7 @@ impl OrderBook {
         // will be changed to beam out book state to subscribers
 
         if buy_order.amount > 0 {
-            let resting_order_id = self.add_order_to_book(buy_order);
+            let resting_order_id = self.add_order_to_book(buy_order, order_counter);
             // self.print_book_state();
             debug!(
                 "Increasing total_volume on buy_side_limit_levels @ price {:?}",
@@ -494,6 +503,7 @@ impl OrderBook {
                     .expect("System Time Error")
                     .subsec_nanos() as usize,
             });
+            debug!("resting_order_id: {:?}", resting_order_id);
             return Some(resting_order_id);
         } else {
             // self.print_book_state();

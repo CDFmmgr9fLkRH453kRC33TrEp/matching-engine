@@ -15,8 +15,13 @@ mod macro_calls;
 mod websockets;
 mod connection_server;
 mod message_types;
+mod parser;
+
+use std::sync::atomic::AtomicUsize;
 
 use std::time::SystemTime;
+
+use std::sync::Arc;
 
 pub use crate::accounts::TraderAccount;
 // pub use crate::orderbook::TickerSymbol;
@@ -50,6 +55,7 @@ async fn main() -> std::io::Result<()> {
     // should start main server actor here, and pass in as cloned app data to websocket endpoint
     let relay_server = connection_server::Server::new().start();
 
+    let order_count = Arc::new(AtomicUsize::new(0));
 
     // to do: add actix guards to confirm correctly formed requests etc. 
     // to do: add actix guards to confirm credit checks etc. 
@@ -91,6 +97,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(global_account_state.clone()) // <- register the created data
             .app_data(web::Data::new(relay_server.clone()))
             .app_data(start_time.clone())
+            .app_data(web::Data::new(order_count.clone()))
             .route("/ws", web::get().to(websockets::websocket))
             // .route("/grafana", web::get().to(websockets::websocket))
             // .route("/viz", web::get().to(websockets::websocket))
