@@ -2,3 +2,4 @@
 RUST_LOG = { value = "debug", force = true }
 CARGO_LOG = { value = "debug", force = true }
 CARGO_PROFILE_RELEASE_DEBUG=true
+RUST_BACKTRACE = 1

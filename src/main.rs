@@ -68,7 +68,7 @@ async fn main() -> std::io::Result<()> {
     });
 
     let global_account_state = web::Data::new(macro_calls::GlobalAccountState {        
-        Columbia_A: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_A, 100000, Ipv4Addr::new(127,16,123,1), ['c','u','_','a'])),
+        Columbia_A: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_A, 100000, Ipv4Addr::new(10,206,113,179), ['c','u','_','a'])),
         Columbia_B: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_B, 100000,Ipv4Addr::new(127,16,123,2),  ['c','u','_','b'])),
         Columbia_C: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_C, 100000, Ipv4Addr::new(127,16,123,3),  ['c','u','_','c'])),
         Columbia_D: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_D, 100000, Ipv4Addr::new(127,16,123,4),  ['c','u','_','d'])),

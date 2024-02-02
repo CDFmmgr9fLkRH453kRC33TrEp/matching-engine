@@ -128,14 +128,24 @@ struct Trader {
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
+
+// Should we allow for partial order cancellations? 
 pub struct CancelRequest {
     pub order_id: OrderID,
     price: Price,
     pub symbol: macro_calls::TickerSymbol,
     side: OrderType,
+    pub password: accounts::Password
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+enum ClientMessage {
+    OrderRequest(OrderRequest),
+    CancelRequest(CancelRequest)
+}
+
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "PascalCase")]
 pub struct Fill {
     /// Struct representing an order fill event, used to update credit limits, communicate orderbook status etc.
     pub sell_trader_id: TraderId,
@@ -186,7 +196,8 @@ impl OrderBook {
     pub fn handle_incoming_cancel_request(
         &mut self,
         cancel_request: CancelRequest,
-        order_counter: &web::Data<Arc<AtomicUsize>>
+        order_counter: &web::Data<Arc<AtomicUsize>>,
+        relay_server_addr: &web::Data<Addr<connection_server::Server>>
     ) -> Option<Order> {
         debug!("remove_order_by_uuid trigger");
         match cancel_request.side {
@@ -229,6 +240,16 @@ impl OrderBook {
                 }
             }
         }
+        relay_server_addr.do_send(LimLevUpdate {
+            level: cancel_request.price,
+            total_order_vol: self.buy_side_limit_levels[cancel_request.price].total_volume,
+            side: OrderType::Buy,
+            symbol: self.symbol,
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("System Time Error")
+                .subsec_nanos() as usize,
+        });
         None
     }
 

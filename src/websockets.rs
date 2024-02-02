@@ -175,6 +175,7 @@ async fn cancel_order(
     cancel_request: web::Json<crate::orderbook::CancelRequest>,
     data: web::Data<crate::macro_calls::GlobalOrderBookState>,
     order_counter: &web::Data<Arc<AtomicUsize>>,
+    relay_server_addr: &web::Data<Addr<crate::connection_server::Server>>,
 ) -> String {
     let cancel_request_inner = cancel_request.into_inner();
     let symbol = &cancel_request_inner.symbol;
@@ -182,7 +183,7 @@ async fn cancel_order(
         .index_ref(symbol)
         .lock()
         .unwrap()
-        .handle_incoming_cancel_request(cancel_request_inner, order_counter);
+        .handle_incoming_cancel_request(cancel_request_inner, order_counter, relay_server_addr);
     // todo: add proper error handling/messaging
     match order_id {
         Some(inner) => String::from(format!("Successfully cancelled order {:?}", inner.order_id)),
@@ -441,6 +442,10 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                 // this is very expensive, should implement more rigid parsing. 
                 // TODO: switch to handling in fix/binary instead of json to improve speed
                 let d = &msg.to_string();
+
+                // NEED TO ALLOW FOR CANCEL REQUESTS!!
+                // Should create meta "message" type which contains either cancel or order
+
                 let t: OrderRequest = serde_json::from_str(d).unwrap();
 
                 let connection_ip = self.connection_ip;

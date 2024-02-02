@@ -48,7 +48,7 @@ use crate::websockets::MyWebSocketActor;
 pub fn ip_to_id (ip: Ipv4Addr) -> Result<crate::macro_calls::TraderId, io::Error> {{
     if (ip == Ipv4Addr::new(127,16,123,1)) {{
         return Ok(crate::macro_calls::TraderId::Columbia_A);
-    }} else if (ip == Ipv4Addr::new(127,16,123,2)){{
+    }} else if (ip == Ipv4Addr::new(10,206,113,179)){{
         return Ok(crate::macro_calls::TraderId::Columbia_B);
     }}else if (ip == Ipv4Addr::new(127,16,123,3)){{
         return Ok(crate::macro_calls::TraderId::Columbia_C);
