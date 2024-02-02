@@ -1,5 +1,9 @@
 <html>
 
+<!-- 
+    THIS IS VERY SLOW/OUTDATED VS ACTUAL ORDERBOOK! JS ISSUE or ORDERBOOK latency?
+    I Think it is just js plotting being a bit slow
+-->
 <!-- Plotly.js -->
 <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
@@ -111,7 +115,7 @@
         if (!start_up_message) {
             data = evt.data;
             // console.log("data", data);
-            const packet = JSON.parse(JSON.parse(data));
+            const packet = JSON.parse(data);
             console.log(typeof packet);
             console.log("level", packet["level"]);
             console.log("total_order_vol", packet["total_order_vol"]);

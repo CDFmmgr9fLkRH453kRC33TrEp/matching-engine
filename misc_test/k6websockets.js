@@ -1,3 +1,5 @@
+// k6 run k6websockets.js
+
 import ws from 'k6/ws';
 import { check } from 'k6';
 import exec from 'k6/execution';
@@ -15,6 +17,7 @@ export let options = {
       env: {
         URL: 'ws://127.16.123.1:4000/orders/ws',
         TRADERID: 'Columbia_A',
+        PASSWORD: 'cu_a',
       }
     },
     trader2: {
@@ -26,6 +29,7 @@ export let options = {
       env: {
         URL: 'ws://127.16.123.2:4000/orders/ws',
         TRADERID: 'Columbia_B',
+        PASSWORD: 'cu_b',
       }
     },
     trader3: {
@@ -37,6 +41,7 @@ export let options = {
       env: {
         URL: 'ws://127.16.123.3:4000/orders/ws',
         TRADERID: 'Columbia_C',
+        PASSWORD: 'cu_c',
       }
     },
     trader4: {
@@ -48,6 +53,7 @@ export let options = {
       env: {
         URL: 'ws://127.16.123.4:4000/orders/ws',
         TRADERID: 'Columbia_D',
+        PASSWORD: 'cu_d',
       }
     }
   },
@@ -71,10 +77,11 @@ export function buy_order() {
           socket.send(JSON.stringify({
             'OrderType': Math.random() < 0.5 ? "Buy" : "Sell",
             // 'OrderType': "Buy",
-            'Amount': 1 + getRandomInt(9),
+            'Amount': 1,
             'Price': 1 + getRandomInt(9),
             'Symbol': "AAPL",
             'TraderId': __ENV.TRADERID,
+            'Password': __ENV.PASSWORD.split("")
           }));
         } else {
           exec.test.abort()

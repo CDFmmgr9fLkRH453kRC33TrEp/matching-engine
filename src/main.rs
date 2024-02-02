@@ -5,6 +5,8 @@ use std::sync::Mutex;
 extern crate env_logger;
 use std::net::Ipv4Addr;
 use actix::Actor;
+use crate::macro_calls::TraderId;
+
 
 extern crate pretty_env_logger;
 #[macro_use] extern crate log;
@@ -15,7 +17,7 @@ mod macro_calls;
 mod websockets;
 mod connection_server;
 mod message_types;
-mod parser;
+// mod parser;
 
 use std::sync::atomic::AtomicUsize;
 
@@ -66,12 +68,14 @@ async fn main() -> std::io::Result<()> {
     });
 
     let global_account_state = web::Data::new(macro_calls::GlobalAccountState {        
-        Columbia_A: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_A, 100000, Ipv4Addr::new(127,16,123,1))),
-        Columbia_B: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_B, 100000,Ipv4Addr::new(127,16,123,2))),
-        Columbia_C: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_C, 100000, Ipv4Addr::new(127,16,123,3))),
-        Columbia_D: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_D, 100000, Ipv4Addr::new(127,16,123,4))),
-        Columbia_Viz: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_Viz, 100000,Ipv4Addr::new(127,16,123,0))),
+        Columbia_A: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_A, 100000, Ipv4Addr::new(127,16,123,1), ['c','u','_','a'])),
+        Columbia_B: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_B, 100000,Ipv4Addr::new(127,16,123,2),  ['c','u','_','b'])),
+        Columbia_C: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_C, 100000, Ipv4Addr::new(127,16,123,3),  ['c','u','_','c'])),
+        Columbia_D: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_D, 100000, Ipv4Addr::new(127,16,123,4),  ['c','u','_','d'])),
+        Columbia_Viz: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_Viz, 100000,Ipv4Addr::new(127,16,123,0),  ['c','u','_','v'])),
     });
+
+
     *global_account_state.Columbia_A.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 30000;
     *global_account_state.Columbia_A.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 30000;
     *global_account_state.Columbia_A.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::JNJ).lock().unwrap() = 30000; 
@@ -89,6 +93,7 @@ async fn main() -> std::io::Result<()> {
     *global_account_state.Columbia_D.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 10000;  
     *global_account_state.Columbia_D.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::JNJ).lock().unwrap() = 80000; 
     *global_account_state.Columbia_D.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::JNJ).lock().unwrap() = 80000;
+
     // handlers discriminate based on type, so can safely pass both pieces of state here
     HttpServer::new(move || {
         App::new().service(

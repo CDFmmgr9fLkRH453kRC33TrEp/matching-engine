@@ -68,6 +68,7 @@ use std::sync::Mutex;
 use uuid::Uuid;
 use crate::accounts::TraderAccount;
 use crate::orderbook::OrderBook;
+use std::str::FromStr;
 // use crate::orderbook::TraderId;
 // hello
 
@@ -77,6 +78,39 @@ macro_rules! generate_enum {{
         pub enum TickerSymbol {{
             $($name, )*
         }}
+        impl TryFrom<&'static str> for TickerSymbol {{
+            type Error = &'static str;
+
+            fn try_from(s: &'static str) -> Result<TickerSymbol, &'static str> {{
+                match s {{
+                    $(stringify!($name) => Ok(TickerSymbol::$name),)+
+                    _ => Err(\"Invalid String\")
+                }}
+            }}
+        }}
+
+        impl FromStr for TickerSymbol {{
+            type Err = &'static str;
+        
+            fn from_str(s: &str) -> Result<Self, Self::Err> {{
+                match s {{
+                    $(stringify!($name) => Ok(TickerSymbol::$name),)+
+                    _ => Err(\"Invalid String\")
+                }}
+            }}
+        }}
+
+        impl TickerSymbol {{
+            // type Err = &'static str;
+
+            pub fn as_bytes(&self) -> &[u8] {{
+                match &self {{
+                    $(TickerSymbol::$name => stringify!($name).as_bytes(),)+
+                    // _ => Err(\"Invalid String\")
+                }}
+            }}
+        }}
+        
     }};
 }}
 
@@ -85,7 +119,39 @@ macro_rules! generate_accounts_enum {{
         #[derive(Debug, Copy, Clone, Deserialize, Serialize, EnumIter)]
         pub enum TraderId {{
             $($name, )*
-        }}       
+        }}
+        impl TryFrom<&'static str> for TraderId {{
+            type Error = &'static str;
+
+            fn try_from(s: &'static str) -> Result<TraderId, &'static str> {{
+                match s {{
+                    $(stringify!($name) => Ok(TraderId::$name),)+
+                    _ => Err(\"Invalid String\")
+                }}
+            }}            
+        }}    
+
+        impl FromStr for TraderId {{
+            type Err = &'static str;
+        
+            fn from_str(s: &str) -> Result<Self, Self::Err> {{
+                match s {{
+                    $(stringify!($name) => Ok(TraderId::$name),)+
+                    _ => Err(\"Invalid String\")
+                }}
+            }}
+        }}
+
+        impl TraderId {{
+            // type Err = &'static str;
+
+            pub fn as_bytes(&self) -> &[u8] {{
+                match &self {{
+                    $(TraderId::$name => stringify!($name).as_bytes(),)+
+                    // _ => Err(\"Invalid String\")
+                }}
+            }}
+        }}   
     }};
 }}
 

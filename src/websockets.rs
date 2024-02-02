@@ -61,7 +61,7 @@ use crate::macro_calls::TickerSymbol;
 use crate::macro_calls::GlobalAccountState;
 use crate::macro_calls::GlobalOrderBookState;
 
-use crate::parser;
+// use crate::parser;
 
 struct GlobalState {
     orderbook_state: crate::macro_calls::GlobalOrderBookState,
@@ -237,6 +237,8 @@ pub async fn websocket(
 
     let id = macro_calls::ip_to_id(conninfo.peer_addr().unwrap().parse().unwrap()).unwrap();
 
+    // let password_needed = req.take_payload( );
+
     ws::start(
         MyWebSocketActor {
             connection_ip: req
@@ -290,8 +292,8 @@ impl Actor for MyWebSocketActor {
             None => error!("Error, no websocket connected?"),
         }
         info!(
-            "Websocket connection ended (id: {:?}, peer_ip:{}).",
-            account_id, self.connection_ip
+            "Websocket connection ended (peer_ip:{}).",
+            self.connection_ip
         );
         info!("curr_order_count {:?}", self.order_counter.load(std::sync::atomic::Ordering::Relaxed))
     }
@@ -432,32 +434,39 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
         debug!("total msgs received:{:?}", self.t_orders);
 
         match msg {
-            Ok(ws::Message::Text(msg))=> {
-                
-                ctx.text("fix message received");
-            }
             Ok(ws::Message::Text(msg)) => {
                 let t_start_o = SystemTime::now();
                 // handle incoming JSON as usual.
 
                 // this is very expensive, should implement more rigid parsing. 
+                // TODO: switch to handling in fix/binary instead of json to improve speed
                 let d = &msg.to_string();
                 let t: OrderRequest = serde_json::from_str(d).unwrap();
 
                 let connection_ip = self.connection_ip;
+
+                let password_needed = self.global_account_state.index_ref(t.trader_id).lock().unwrap().password;
+
                 let ip_needed = self
                     .global_account_state
                     .index_ref(t.trader_id)
                     .lock()
                     .unwrap()
                     .trader_ip;
-                if (connection_ip != ip_needed) {
-                    warn!("Invalid ip for provided trader_id: {}", connection_ip);
-                    warn!("connection_ip: {}", connection_ip);
-                    warn!("ip_needed: {}", ip_needed);
-                    ctx.text("invalid ip for provided trader id.");
-                    // ctx.close(None);
+
+                if (password_needed != t.password) {
+                    warn!("Invalid password for provided trader_id: {}", connection_ip);
+                    ctx.text("invalid password for provided trader id.");
                 } else {
+                
+                // if (connection_ip != ip_needed) {
+                //     // TODO: switch to login/password instead of id/ip verification to handle reconnections
+                //     warn!("Invalid ip for provided trader_id: {}", connection_ip);
+                //     warn!("connection_ip: {}", connection_ip);
+                //     warn!("ip_needed: {}", ip_needed);
+                //     ctx.text("invalid ip for provided trader id.");
+                //     // ctx.close(None);
+                // } else {
 
                     // should be passed to fix parser here
 
@@ -522,7 +531,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                 // .lock()
                 // .unwrap()
                 // .current_actor = None;
-                error!("Received close message, closing context.");
+                info!("Received close message, closing context.");
                 ctx.close(reason);
                 ctx.stop();
             }

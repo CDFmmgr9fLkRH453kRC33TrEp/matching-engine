@@ -8,7 +8,7 @@ import math
 
 from scipy.interpolate import interp1d
 
-# NEED TO SET UP LOOPBACK FOR TESTING
+# NEED TO SET UP  FOR TESTING
 # sudo ifconfig lo0 alias 127.16.123.1 (columbia a)
 # sudo ifconfig lo0 alias 127.16.123.2 (columbia b)
 
@@ -16,6 +16,7 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('--ip', type=str, required=True)
 parser.add_argument('--id', type=str, required=True)
+parser.add_argument('--password', type=str, required=True)
 
 args = parser.parse_args()
 
@@ -60,6 +61,7 @@ def trade_rand():
         'Price': price,
         'Symbol': symbol,
         'TraderId': f"{args.id}",
+        'Password': f"{args.password.split('')}"
     }
 
     ws.send(json.dumps(jsonreq))

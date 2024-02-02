@@ -11,6 +11,7 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('--ip', type=str, required=True)
 parser.add_argument('--id', type=str, required=True)
+parser.add_argument('--password', type=str, required=True)
 
 args = parser.parse_args()
 
@@ -37,6 +38,7 @@ async def producer():
         'Price': price,
         'Symbol': symbol,
         'TraderId': f"{args.id}",
+        'Password': list(args.password)
     }
     return json.dumps(jsonreq)
 

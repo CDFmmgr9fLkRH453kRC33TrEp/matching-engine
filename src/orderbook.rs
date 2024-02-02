@@ -108,6 +108,7 @@ pub struct OrderRequest {
     pub order_type: OrderType,
     pub trader_id: TraderId,
     pub symbol: macro_calls::TickerSymbol,
+    pub password: accounts::Password
 }
 
 #[derive(Debug, Clone, Serialize)]

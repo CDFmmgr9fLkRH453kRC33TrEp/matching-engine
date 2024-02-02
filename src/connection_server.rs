@@ -35,7 +35,7 @@ impl Handler<crate::orderbook::LimLevUpdate> for Server {
         msg: crate::orderbook::LimLevUpdate,
         ctx: &mut Self::Context,
     ) -> Self::Result {
-        // debug!("New LimLevUpdate Message Received by Relay Server");
+        debug!("New LimLevUpdate Message Received by Relay Server");
         let msg_arc = Arc::new(msg);
         for connection in self.connected_actors.iter() {
             connection.do_send(msg_arc.clone());

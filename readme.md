@@ -113,3 +113,6 @@ Also makes modelling a bit more interesting/open-ended, as people can be creativ
 * convert trader accounts to actix actors which register new streams as connections are made or dropped
 * implement custom parsing for fields returned by parser::parse_bytes() 
 * revamp build script/macros to define traders and assets at compile time
+* extend mod.rs in fix_values to implement custom (de)serialization. Will probably need to be specified in build.rs
+
+f

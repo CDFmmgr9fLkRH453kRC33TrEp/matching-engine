@@ -8,11 +8,15 @@ use queues::IsQueue;
 use std::sync::Arc;
 
 use queues;
+
+pub type Password = [char; 4];
+
 pub struct TraderAccount {
     pub trader_id: macro_calls::TraderId,
     pub cents_balance: usize,
     pub trader_ip: macro_calls::TraderIp,
     pub current_actor: Option<Addr<websockets::MyWebSocketActor>>,
+    pub password: Password,
     // pub websocket actor: actix addr
     // pub fill_event_queue: fifo queue
     // pub fn send_message {
@@ -57,7 +61,7 @@ impl TraderAccount {
     }
 }
 
-pub fn quickstart_trader_account (trader_id: macro_calls::TraderId, cents_balance: usize, trader_ip: macro_calls::TraderIp) -> TraderAccount {
+pub fn quickstart_trader_account (trader_id: macro_calls::TraderId, cents_balance: usize, trader_ip: macro_calls::TraderIp, password: Password) -> TraderAccount {
     TraderAccount {        
         trader_id: trader_id,
         trader_ip: trader_ip,
@@ -70,5 +74,6 @@ pub fn quickstart_trader_account (trader_id: macro_calls::TraderId, cents_balanc
         // in cents
         net_asset_balances: macro_calls::AssetBalances::new(),
         current_actor: None,
+        password: password
     }
 }
