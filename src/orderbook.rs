@@ -190,6 +190,10 @@ impl OrderBook {
                     .push(new_order);
             }
         }
+        // Add check for remaining cross here
+        if(self.current_high_buy_price >= self.current_low_sell_price) {
+            warn!("Cross Occurred: CHBP: {:?}, CLSP: {:?}", self.current_high_buy_price, self.current_low_sell_price)
+        } 
         order_id
     }
 
