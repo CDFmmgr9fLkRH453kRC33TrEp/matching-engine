@@ -187,8 +187,8 @@
         }
         Plotly.newPlot('AAPL', data, layout);
         
-        function addItem(name, vol, loc) {
-        const itemList = document.getElementById(loc);
+        function addOrder(name, vol, loc) {
+        const itemList = document.getElementById('ActiveOrders');
         const item = document.createElement('li');
         item.className = 'item';
 
@@ -201,17 +201,39 @@
         const removeButton = document.createElement('button');
         removeButton.className = 'remove-button';
         
-        if (loc == 'ActiveOrders') {
-            removeButton.textContent = 'Cancel';
-            removeButton.onclick = function (i) {
-                item.remove();
-            };
-        } else if (loc == 'ActivePositions') {
-            removeButton.textContent = 'Sell';
-            removeButton.onclick = function (i) {
-                item.remove();
-            };
+        removeButton.textContent = 'Cancel';
+        removeButton.onclick = function (i) {
+            item.remove();
+            console.log("Cancel order message")
+        };
+
+        item.appendChild(itemName);
+        item.appendChild(itemDate);
+        item.appendChild(removeButton);
+
+        itemList.appendChild(item);
+
         }
+
+        function addPosition(name, vol) {
+        const itemList = document.getElementById('ActivePositions');
+        const item = document.createElement('li');
+        item.className = 'item';
+
+        const itemName = document.createElement('span');
+        itemName.textContent = name;
+
+        const itemDate = document.createElement('span');
+        itemDate.textContent = vol;
+
+        const removeButton = document.createElement('button');
+        removeButton.className = 'remove-button';
+        
+        removeButton.textContent = 'Sell';
+        removeButton.onclick = function (i) {
+            item.remove();
+            console.log("Sell message");
+        };
 
         item.appendChild(itemName);
         item.appendChild(itemDate);
@@ -227,8 +249,8 @@
         { name: 'JNJ', vol: '200' },
         ];
 
-        sampleItems.forEach(item => addItem(item.name, item.vol, 'ActiveOrders'));
-        sampleItems.forEach(item => addItem(item.name, item.vol, 'ActivePositions'));
+        sampleItems.forEach(item => addOrder(item.name, item.vol));
+        sampleItems.forEach(item => addPosition(item.name, item.vol));
 
         const toggleBtn = document.querySelector(".btn-toggle-chart");
         const charts = document.querySelectorAll(".chart");
