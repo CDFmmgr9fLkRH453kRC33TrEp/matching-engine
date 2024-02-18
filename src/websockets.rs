@@ -366,7 +366,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
         //         // ctx.text("hello");
         //     });
         // } else {
-        let account_id = crate::macro_calls::ip_to_id(connection_ip).unwrap();
+        let account_id: macro_calls::TraderId = crate::macro_calls::ip_to_id(connection_ip).unwrap();
         debug!("Trader with id {:?} connected.", account_id);
         {
             let curr_actor = &mut self
