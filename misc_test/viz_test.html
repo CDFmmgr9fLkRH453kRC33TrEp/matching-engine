@@ -146,12 +146,13 @@
                 // console.log(orderbook)
                 if (orderbooks.hasOwnProperty(orderbook)) {
                     packet[orderbook]["buy_side_limit_levels"].forEach((x, i) => {
-                        console.log(i, x);
+                        console.log("sm bs", i, x);
                         orderbooks[orderbook]["depth_chart_buy"][i] = parseInt(x["total_volume"])
                     });
-                    packet[orderbook]["sell_side_limit_levels"].forEach((x, i) =>
+                    packet[orderbook]["sell_side_limit_levels"].forEach((x, i) => {
+                        console.log("sm ss", i, x);
                         orderbooks[orderbook]["depth_chart_sell"][i] = parseInt(x["total_volume"])
-                    );
+                    });
                 }
             }
             update_viz(sel.value());
