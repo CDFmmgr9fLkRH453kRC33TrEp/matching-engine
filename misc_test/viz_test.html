@@ -114,8 +114,14 @@
 
         if (!start_up_message) {
             data = evt.data;
-            // console.log("data", data);
+            console.log("data", data);
+
+            
+
             const packet = JSON.parse(data);
+
+            console.log("message type", packet["message_type"])
+
             console.log(typeof packet);
             console.log("level", packet["level"]);
             console.log("total_order_vol", packet["total_order_vol"]);
@@ -158,8 +164,6 @@
             update_viz(sel.value());
             update_viz(sel.value());
         }
-
-
     };
 
     ws.onclose = function () {
