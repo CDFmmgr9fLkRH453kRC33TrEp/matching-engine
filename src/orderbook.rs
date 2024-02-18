@@ -108,7 +108,7 @@ pub struct OrderRequest {
     pub order_type: OrderType,
     pub trader_id: TraderId,
     pub symbol: macro_calls::TickerSymbol,
-    pub password: accounts::Password
+    pub password: accounts::Password,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -129,19 +129,19 @@ struct Trader {
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 
-// Should we allow for partial order cancellations? 
+// Should we allow for partial order cancellations?
 pub struct CancelRequest {
     pub order_id: OrderID,
     price: Price,
     pub symbol: macro_calls::TickerSymbol,
     side: OrderType,
-    pub password: accounts::Password
+    pub password: accounts::Password,
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 enum ClientMessage {
     OrderRequest(OrderRequest),
-    CancelRequest(CancelRequest)
+    CancelRequest(CancelRequest),
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
@@ -159,7 +159,11 @@ impl Message for Fill {
     type Result = ();
 }
 impl OrderBook {
-    fn add_order_to_book(&mut self, new_order_request: OrderRequest, order_counter: &web::Data<Arc<AtomicUsize>>) -> OrderID {
+    fn add_order_to_book(
+        &mut self,
+        new_order_request: OrderRequest,
+        order_counter: &web::Data<Arc<AtomicUsize>>,
+    ) -> OrderID {
         debug!("add_order_to_book trigger");
         // uuid creation is taking non negligible time
         let order_id = order_counter.fetch_add(1, Ordering::Relaxed);
@@ -190,10 +194,6 @@ impl OrderBook {
                     .push(new_order);
             }
         }
-        // Add check for remaining cross here
-        if(self.current_high_buy_price >= self.current_low_sell_price) {
-            warn!("Cross Occurred: CHBP: {:?}, CLSP: {:?}", self.current_high_buy_price, self.current_low_sell_price)
-        } 
         order_id
     }
 
@@ -201,7 +201,7 @@ impl OrderBook {
         &mut self,
         cancel_request: CancelRequest,
         order_counter: &web::Data<Arc<AtomicUsize>>,
-        relay_server_addr: &web::Data<Addr<connection_server::Server>>
+        relay_server_addr: &web::Data<Addr<connection_server::Server>>,
     ) -> Option<Order> {
         debug!("remove_order_by_uuid trigger");
         match cancel_request.side {
@@ -262,11 +262,21 @@ impl OrderBook {
         new_order_request: OrderRequest,
         accounts_data: &web::Data<macro_calls::GlobalAccountState>,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
-        order_counter: &web::Data::<Arc<AtomicUsize>>
+        order_counter: &web::Data<Arc<AtomicUsize>>,
     ) -> Option<OrderID> {
         match new_order_request.order_type {
-            OrderType::Buy => self.handle_incoming_buy(new_order_request, accounts_data, relay_server_addr, order_counter),
-            OrderType::Sell => self.handle_incoming_sell(new_order_request, accounts_data, relay_server_addr, order_counter),
+            OrderType::Buy => self.handle_incoming_buy(
+                new_order_request,
+                accounts_data,
+                relay_server_addr,
+                order_counter,
+            ),
+            OrderType::Sell => self.handle_incoming_sell(
+                new_order_request,
+                accounts_data,
+                relay_server_addr,
+                order_counter,
+            ),
         }
     }
     fn handle_incoming_sell(
@@ -277,8 +287,8 @@ impl OrderBook {
         order_counter: &web::Data<Arc<AtomicUsize>>,
     ) -> Option<OrderID> {
         debug!(
-            "Incoming sell, current high buy {:?}",
-            self.current_high_buy_price
+            "Incoming sell, current high buy {:?}, current low sell {:?}",
+            self.current_high_buy_price, self.current_low_sell_price
         );
 
         if sell_order.price <= self.current_high_buy_price {
@@ -329,8 +339,8 @@ impl OrderBook {
                     //     self.buy_side_limit_levels[current_price_level].total_volume
                     // );
                     // warn!("Amount to be traded: {:?}", amount_to_be_traded);
-                    // self.buy_side_limit_levels[current_price_level].total_volume -=
-                    //     amount_to_be_traded;
+                    self.buy_side_limit_levels[current_price_level].total_volume -=
+                        amount_to_be_traded;
                     // debug!(
                     //     "orders: {:?}",
                     //     self.sell_side_limit_levels[current_price_level].orders
@@ -399,6 +409,17 @@ impl OrderBook {
                     .expect("System Time Error")
                     .subsec_nanos() as usize,
             });
+            if (self.current_high_buy_price >= self.current_low_sell_price) {
+                warn!(
+                    "Cross Occurred!: CHBP: {:?}, CLSP: {:?}",
+                    self.current_high_buy_price, self.current_low_sell_price
+                )
+            } else {
+                warn!(
+                    "No Cross Occurred: CHBP: {:?}, CLSP: {:?}",
+                    self.current_high_buy_price, self.current_low_sell_price
+                )
+            };
             return Some(resting_order_id);
         } else {
             // self.print_book_state();
@@ -409,12 +430,12 @@ impl OrderBook {
         &mut self,
         mut buy_order: OrderRequest,
         accounts_data: &web::Data<macro_calls::GlobalAccountState>,
-        relay_server_addr:&web::Data<Addr<connection_server::Server>>,
+        relay_server_addr: &web::Data<Addr<connection_server::Server>>,
         order_counter: &web::Data<Arc<AtomicUsize>>,
     ) -> Option<OrderID> {
         debug!(
-            "Incoming Buy, current low sell {:?}",
-            self.current_low_sell_price
+            "Incoming Buy, current low sell {:?}, current high buy {:?}",
+            self.current_low_sell_price, self.current_high_buy_price
         );
         if buy_order.price >= self.current_low_sell_price {
             let mut current_price_level = self.current_low_sell_price;
@@ -530,6 +551,18 @@ impl OrderBook {
                     .subsec_nanos() as usize,
             });
             debug!("resting_order_id: {:?}", resting_order_id);
+            // Add check for remaining cross here
+            if (self.current_high_buy_price >= self.current_low_sell_price) {
+                warn!(
+                    "Cross Occurred!: CHBP: {:?}, CLSP: {:?}",
+                    self.current_high_buy_price, self.current_low_sell_price
+                )
+            } else {
+                warn!(
+                    "No Cross Occurred: CHBP: {:?}, CLSP: {:?}",
+                    self.current_high_buy_price, self.current_low_sell_price
+                )
+            };
             return Some(resting_order_id);
         } else {
             // self.print_book_state();
