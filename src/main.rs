@@ -12,6 +12,7 @@ extern crate pretty_env_logger;
 #[macro_use] extern crate log;
 
 mod orderbook;
+mod api_messages;
 mod accounts;
 mod macro_calls;
 mod websockets;

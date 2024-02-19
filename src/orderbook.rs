@@ -198,6 +198,7 @@ impl OrderBook {
         order_id
     }
 
+    // should use Result instead of Option to pass up info about error if needed.
     pub fn handle_incoming_cancel_request(
         &mut self,
         cancel_request: CancelRequest,

@@ -72,11 +72,6 @@ enum IncomingMessage {
     CancelRequest(CancelRequest),
 }
 
-struct GlobalState {
-    orderbook_state: crate::macro_calls::GlobalOrderBookState,
-    account_state: crate::macro_calls::GlobalAccountState,
-}
-
 fn add_order(
     order_request: crate::orderbook::OrderRequest,
     data: &web::Data<crate::macro_calls::GlobalOrderBookState>,
@@ -194,6 +189,7 @@ fn cancel_order(
         .unwrap()
         .handle_incoming_cancel_request(cancel_request_inner, order_counter, relay_server_addr);
     // todo: add proper error handling/messaging
+    // instead of returning none, this should return Result and I can catch it here to propagate up actix framework
     match order_id {
         Some(inner) => String::from(format!("Successfully cancelled order {:?}", inner.order_id)),
         None => String::from(
