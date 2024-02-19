@@ -373,6 +373,7 @@
         symbol = event.target.elements.symbol.value;
         
         const message = {
+                MessageType: "OrderRequest",
                 Price: int(data.get("price")),
                 TraderId: "Columbia_A",
                 OrderType: data.get("type"),

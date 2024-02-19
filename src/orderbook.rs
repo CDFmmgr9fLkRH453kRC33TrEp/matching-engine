@@ -132,6 +132,7 @@ struct Trader {
 // Should we allow for partial order cancellations?
 pub struct CancelRequest {
     pub order_id: OrderID,
+    pub trader_id: TraderId,
     price: Price,
     pub symbol: macro_calls::TickerSymbol,
     side: OrderType,
