@@ -1,0 +1,440 @@
+<html>
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@200&display=swap" rel="stylesheet">
+    <style>
+        html, body { width: 100%; height: 100%; padding: 0; margin: 0 }
+        #nav { background: #363641; top: 0.4%; left: 0.4%; right: 0.4%; bottom: 90.8%; position: absolute; padding: 1em; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.36); border-radius: 1.5%}
+        #nw { background: rgb(54, 54, 65); top: 10.4%;   left: 0.4%;   right: 40.4%; bottom: 45.6%; position: absolute; padding: 1em; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.36); border-radius: 1.5%}
+        #ne { background: rgb(54, 54, 65); top: 10.4%;   left: 60.4%; right: 0.4%;   bottom: 45.6%; position: absolute; padding: 1em; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.36); border-radius: 1.5%}
+        #sw { background: rgb(54, 54, 65); top: 55.6%; left: 0.4%;   right: 70.4%; bottom: 0.4%; position: absolute; padding: 1em; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.36); border-radius: 1.5%}
+        #sm { background: rgb(54, 54, 65); top: 55.6%; left: 30.4%;   right: 40.4%; bottom: 0.4%; position: absolute; padding: 1em; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.36); border-radius: 1.5%}
+        #se { background: rgb(54, 54, 65); top: 55.6%; left: 60.4%; right: 0.4%;   bottom: 0.4%; position: absolute; padding: 1em; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.36); border-radius: 1.5%}
+
+        #toggle-chart,
+        #AAPL,
+        #JNJ {
+            width: 100%;
+            position: absolute;
+        }
+        #toggle-chart {
+            z-index: 10;
+            width: 50%
+        }
+
+        li {
+            padding-bottom: 1em;
+        }
+
+        .form-group {
+            position: relative;
+            padding: 1.5em 0px;
+            margin: 8px 0;
+            box-sizing: border-box;
+            border: none
+        }
+
+        input {
+            font-family: inherit;
+        }
+
+
+        .header {
+            font-size: 28px
+        }
+
+        button {
+            font-family: inherit;
+        }
+
+        body {
+            font-family: 'IBM Plex Sans Condensed';
+            color:rgb(241, 243, 244);
+            background-color: rgb(25,25, 39)
+        }
+
+        span {
+            padding-right: 1em;
+        }
+
+        label {
+            padding-right: 1em;
+        }
+
+        select {
+            font-family: inherit;
+        }
+
+        input[type=text] {
+            border: 1px solid rgb(241, 243, 244);
+            border-radius: 4px;
+            background-color: transparent;
+        }
+
+        ul {
+            list-style: none;
+        }
+
+        .hide {
+            display: none !important
+        }
+
+        img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain; 
+        }
+    </style>
+
+    <script type="text/javascript"> 
+
+        function stopRKey(evt) { 
+          var evt = (evt) ? evt : ((event) ? event : null); 
+          var node = (evt.target) ? evt.target : ((evt.srcElement) ? evt.srcElement : null); 
+          if ((evt.keyCode == 13) && (node.type=="text"))  {return false;} 
+        } 
+        
+        document.onkeypress = stopRKey; 
+        
+    </script> 
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+    <script src="p5.js"></script>
+</head>
+
+<body>
+    <div id="nav">
+        <span>
+              <img src="logo.png"></img>
+        </span>
+        <span class="header">Balance:</span>
+        <span class="header">Unrealized P/L:</span>
+        <span class="header">Connection Status:</span>
+    </div>
+
+    <div id="nw">
+        <section id="page-4" class="page">
+            <div id="toggle-chart"><button class="btn btn-link btn-toggle-chart">Toggle Chart</button></div>
+            <div class="chart" id="AAPL"></div>
+            <div class="chart hide" id="JNJ"></div>
+        </section>
+    </div>
+    <div id="ne">
+        <h>Active Positions</h>
+        <ul id="ActivePositions"></ul>
+    </div>
+    <div id="sm">
+        <h>Active Orders</h>
+        <ul id='ActiveOrders'></ul>
+    </div>
+    <div id="sw">
+        <h>Order Form</h>
+        <form>
+            
+            <div class="form-group">
+              <label>Symbol</label>
+                <select id="symbol" name="symbol" class="form-control">
+                  <option value="AAPL">AAPL</option>
+                  <option value="JNJ">JNJ</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+              <label>Order Type</label>
+                <label>
+                  <input type="radio" name="type" id="type-0" value="Buy" checked="checked">
+                  Buy
+                </label> 
+                <label>
+                  <input type="radio" name="type" id="type-1" value="Sell">
+                  Sell
+                </label>
+            </div>
+            
+            <div class="form-group">
+              <label>Price</label>  
+              <input id="price" name="price" type="text" placeholder="200">
+            </div>
+            
+            <div class="form-group">
+              <label>Amount</label>  
+              <input id="amount" name="amount" type="text" placeholder="500">
+            </div>
+            
+            <div class="form-group">
+                <input formmethod= post type= "submit" id="submit" name="submit">
+            </div>
+            
+        </form>
+    </div>
+    <div id="se" align=""></div>
+
+    <script>
+        var trace1 = {
+        x: [1, 2, 3, 4],
+        y: [10, 15, 13, 17],
+        type: 'scatter'
+        };
+    
+        var data = [trace1];
+        const layout = {
+        paper_bgcolor: "rgba(0,0,0,0)",
+        plot_bgcolor: "rgba(0,0,0,0)",
+        }
+        Plotly.newPlot('AAPL', data, layout);
+        
+        function addOrder(name, vol, loc) {
+        const itemList = document.getElementById('ActiveOrders');
+        const item = document.createElement('li');
+        item.className = 'item';
+
+        const itemName = document.createElement('span');
+        itemName.textContent = name;
+
+        const itemDate = document.createElement('span');
+        itemDate.textContent = vol;
+
+        const removeButton = document.createElement('button');
+        removeButton.className = 'remove-button';
+        
+        removeButton.textContent = 'Cancel';
+        removeButton.onclick = function (i) {
+            item.remove();
+            console.log("Cancel order message")
+        };
+
+        item.appendChild(itemName);
+        item.appendChild(itemDate);
+        item.appendChild(removeButton);
+
+        itemList.appendChild(item);
+
+        }
+
+        function addPosition(name, vol) {
+        const itemList = document.getElementById('ActivePositions');
+        const item = document.createElement('li');
+        item.className = 'item';
+
+        const itemName = document.createElement('span');
+        itemName.textContent = name;
+
+        const itemDate = document.createElement('span');
+        itemDate.textContent = vol;
+
+        const removeButton = document.createElement('button');
+        removeButton.className = 'remove-button';
+        
+        removeButton.textContent = 'Sell';
+        removeButton.onclick = function (i) {
+            item.remove();
+            console.log("Sell message");
+        };
+
+        item.appendChild(itemName);
+        item.appendChild(itemDate);
+        item.appendChild(removeButton);
+
+        itemList.appendChild(item);
+        }
+
+
+        const sampleItems = [
+        { name: 'AAPL', vol: '500' },
+        { name: 'AAPL', vol: '600' },
+        { name: 'JNJ', vol: '200' },
+        ];
+
+        sampleItems.forEach(item => addOrder(item.name, item.vol));
+        sampleItems.forEach(item => addPosition(item.name, item.vol));
+
+        const toggleBtn = document.querySelector(".btn-toggle-chart");
+        const charts = document.querySelectorAll(".chart");
+
+        toggleBtn.addEventListener("click", (event) => {
+            charts.forEach(chart => {
+                chart.classList.toggle("hide");
+            })
+        })
+    </script>
+
+</body>
+
+<script>
+    
+    ws = new WebSocket("ws://127.16.123.0:4000/orders/ws")
+        // todo: maintain pointer to cross
+        // format: index is price, number is total amount at price level.
+        // gonna change this so just top 10 are shown. Change price labels
+        high_buy = 10
+        low_sell = 0
+        orderbooks = {
+            "AAPL": {
+                "scale_factor": 1,
+                "depth_chart_buy": [21, 12, 17, 0, 18, 0, 0, 0, 0, 0],
+                "depth_chart_sell": [0, 0, 0, 0, 0, 13, 41, 0, 34, 22]
+            },
+            "JNJ": {
+                "scale_factor": 1,
+                "depth_chart_buy": [],
+                "depth_chart_sell": []
+            }
+        }
+        
+        canWidth = 0.95 * document.getElementById('se').clientWidth;
+        canHeight = document.getElementById('se').clientHeight;
+        x_axis_offset = canHeight - 40;
+        scale_factor = 10;
+        
+        function setup() {
+            textAlign(LEFT, TOP);
+            font = 'IBM Plex Sans Condensed';
+            textFont(font);
+            canvas = createCanvas(canWidth, canHeight);
+            canvas.parent('se');
+            textSize(20);
+            frameRate(60);
+            sel = createSelect();
+            sel.parent('se')
+            sel.position(canWidth - 80, 20);
+            for (var key in orderbooks) {
+                if (orderbooks.hasOwnProperty(key)) {
+                    sel.option(key);
+                }
+            }
+            sel.changed(select_evt);
+            // select_evt()
+            update_viz('AAPL')
+        }
+
+        function update_viz(symbol) {
+            textAlign(CENTER, BOTTOM);
+            textSize(10);
+            textFont(font);
+            buy_pointer = high_buy - 1;
+            col_width = canWidth / orderbooks[symbol]["depth_chart_buy"].length
+            running_buy_interest = 0;
+            fill('rgb(30, 179, 24)');
+            while (buy_pointer >= 0) {
+                fill('rgb(30, 179, 24)');
+                running_buy_interest += orderbooks[symbol]["depth_chart_buy"][buy_pointer]
+                rect(buy_pointer * col_width, x_axis_offset - running_buy_interest * orderbooks[symbol]["scale_factor"], col_width, running_buy_interest * orderbooks[symbol]["scale_factor"])
+                fill('rgb(241, 243, 244)');
+                text(buy_pointer, buy_pointer * col_width + col_width/2, x_axis_offset + 15)
+                if (running_buy_interest > 0){
+                    fill('rgb(241, 243, 244)');
+                    text(running_buy_interest, buy_pointer * col_width + col_width/2, x_axis_offset - running_buy_interest * orderbooks[symbol]["scale_factor"])
+                    fill('rgb(30, 179, 24)');
+                }
+                console.log(buy_pointer * col_width, x_axis_offset, col_width, running_buy_interest*10);
+                buy_pointer -= 1;
+            }        
+
+            running_sell_interest = 0;
+            sell_pointer = low_sell;
+            fill('rgb(191, 31, 31)');
+            while (sell_pointer < orderbooks[symbol]["depth_chart_sell"].length) {
+                running_sell_interest += orderbooks[symbol]["depth_chart_sell"][sell_pointer]
+                rect(sell_pointer * col_width, x_axis_offset - running_sell_interest * orderbooks[symbol]["scale_factor"], col_width, running_sell_interest * orderbooks[symbol]["scale_factor"])
+                if (running_sell_interest > 0){
+                    fill('rgb(241, 243, 244)');
+                    text(running_sell_interest, sell_pointer * col_width + col_width/2, x_axis_offset - running_sell_interest * orderbooks[symbol]["scale_factor"])
+                    fill('rgb(191, 31, 31)');
+                }
+                // console.log(sell_pointer * col_width, x_axis_offset, col_width, running_buy_interest*10);
+                sell_pointer += 1;
+            }
+            
+            orderbooks[symbol]["scale_factor"] = (canHeight/2)/Math.max(running_buy_interest, running_sell_interest)
+            // console.log(running_buy_interest, running_sell_interest)
+            // console.log(Math.max(running_buy_interest, running_sell_interest))
+            // console.log(scale_factor)
+            
+            textAlign(LEFT, TOP);
+            fill('rgb(241, 243, 244)');
+            textSize(20);
+            text(symbol, 10, 10)
+            textSize(15);
+            text("Total Resting Buy Volume: " + running_buy_interest, 10,  30)
+            text("Total Resting Sell Volume: " + running_sell_interest, 10,  45)
+        }
+
+        function select_evt() {
+            update_viz(sel.value())
+            update_viz(sel.value())
+        }
+
+
+        start_up_message = true;
+        // receive a message from the server
+        ws.onmessage = function (evt) {
+
+            if (!start_up_message) {
+                data = evt.data;
+                // console.log("data", data);
+                const packet = JSON.parse(data);
+                console.log(typeof packet);
+                console.log("level", packet["level"]);
+                console.log("total_order_vol", packet["total_order_vol"]);
+                console.log("side", packet["side"]);
+
+                const level = parseInt(packet["level"])
+                const side = packet["side"]
+                const total_order_vol = parseInt(packet["total_order_vol"])
+                const symbol = packet["symbol"]
+
+                if (packet["side"] == "Buy") {
+                    console.log("updating buy side")
+                    orderbooks[symbol]["depth_chart_buy"][level] = total_order_vol
+                } else if (packet["side"] == "Sell") {
+                    console.log("updating sell side")
+                    orderbooks[symbol]["depth_chart_sell"][level] = total_order_vol
+                }
+                if (sel.value() == symbol) {
+                    update_viz(symbol);
+                }
+            } else {
+                data = evt.data;
+                start_up_message = false
+                // this is the orderbook dump
+                const packet = JSON.parse(data);
+                // console.log(packet)
+                for (var orderbook in packet) {
+                    // console.log(orderbook)
+                    if (orderbooks.hasOwnProperty(orderbook)) {
+                        packet[orderbook]["buy_side_limit_levels"].forEach((x, i) => {
+                            console.log(i, x);
+                            orderbooks[orderbook]["depth_chart_buy"][i] = parseInt(x["total_volume"])
+                        });
+                        packet[orderbook]["sell_side_limit_levels"].forEach((x, i) =>
+                            orderbooks[orderbook]["depth_chart_sell"][i] = parseInt(x["total_volume"])
+                        );
+                    }
+                }
+                update_viz(sel.value());
+                update_viz(sel.value());
+            }
+
+
+        };
+
+        function windowResized() {
+            canWidth = 0.95 * document.getElementById('se').clientWidth;
+            canHeight = document.getElementById('se').clientHeight;
+            resizeCanvas(canWidth, canHeight);
+            update_viz("AAPL");
+            Plotly.newPlot('AAPL', data, layout);
+        }
+
+        ws.onclose = function () {
+            // websocket is closed.
+            console.log("WS Conn closed :(")
+        };
+
+        setup()
+        update_viz("AAPL")
+
+</script>
+</html>
