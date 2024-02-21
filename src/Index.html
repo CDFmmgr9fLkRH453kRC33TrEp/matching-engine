@@ -6,15 +6,13 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@200&display=swap" rel="stylesheet">
     <style>
         html, body { width: 100%; height: 100%; padding: 0; margin: 0 }
-        #nav { background: #363641; top: 0.4%; left: 0.4%; right: 10.4vh; bottom: 90.8%; position: absolute; padding: 1em; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.36); border-radius: 1.5%}
+        #nav { background: #363641; top: 0.4%; left: 0.4%; right: 0.4%; bottom: 90.8%; position: absolute; padding: 1em; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.36); border-radius: 1.5%}
         #nw { background: rgb(54, 54, 65); top: 10.4%;   left: 0.4%;   right: 40.4%; bottom: 45.6%; position: absolute; padding: 1em; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.36); border-radius: 1.5%}
         #ne { background: rgb(54, 54, 65); top: 10.4%;   left: 60.4%; right: 0.4%;   bottom: 45.6%; position: absolute; padding: 1em; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.36); border-radius: 1.5%}
         #sw { background: rgb(54, 54, 65); top: 55.6%; left: 0.4%;   right: 70.4%; bottom: 0.4%; position: absolute; padding: 1em; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.36); border-radius: 1.5%}
         #sm { background: rgb(54, 54, 65); top: 55.6%; left: 30.4%;   right: 40.4%; bottom: 0.4%; position: absolute; padding: 1em; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.36); border-radius: 1.5%}
         #se { background: rgb(54, 54, 65); top: 55.6%; left: 60.4%; right: 0.4%;   bottom: 0.4%; position: absolute; padding: 1em; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.36); border-radius: 1.5%}
-        #cwrapper {position: absolute; right: 0.4%; left: (100vw - 10vh); top: 0.4%; bottom: 90.8%; background: rgb(25, 25, 39); display: flex; justify-content: right;}
-        #circle {border-radius: 50%; background: rgb(54, 54, 65); position: absolute; top: 0.4%; bottom: 90.8%; height: 9vh; width: 9vh; box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.36);}
-        
+
         #toggle-chart,
         #AAPL,
         #JNJ {
@@ -109,13 +107,13 @@
 <body>
     <div id="nav">
         <span>
-              <img src="CAP_Logo.png"></img>
+              <img src="logo.png"></img>
         </span>
         <span class="header">Balance:</span>
         <span class="header">Unrealized P/L:</span>
         <span class="header">Connection Status:</span>
     </div>
-    <div id="cwrapper"><div id="circle"></div></div>
+
     <div id="nw">
         <section id="page-4" class="page">
             <div id="toggle-chart"><button class="btn btn-link btn-toggle-chart">Toggle Chart</button></div>
