@@ -16,6 +16,7 @@ serde = { version = "1", features = ["derive"]}
 csv = "1.1"
 plotters = "0.3"
 serde = { version = "1", features = ["derive"]}
+
 # server dependencies
 actix-web = "4"
 serde_json = {version = "1.0"}
@@ -26,6 +27,7 @@ log = "0.4.17"
 # Websockets dependencies
 actix = "0.13.0"
 actix-web-actors = "4.2.0"
+derive_more = "0.99.0"
 
 # testing
 tokio = { version = "1", features = ["full"] }

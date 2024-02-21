@@ -7,7 +7,8 @@ use crate::orderbook::OrderType;
 use crate::orderbook::Price;
 use crate::CancelRequest;
 use crate::OrderRequest;
-
+use actix_web::{error, Result};
+use derive_more::{Display, Error};
 
 // Client -> Server Messages
 #[derive(Serialize, Deserialize)]
@@ -18,16 +19,11 @@ enum IncomingMessage {
 }
 
 // Server -> Client Messages
-pub enum CancelErrorReason {
-    SystemTimeError,
-
-}
 pub struct CancelErrorMessage {
     order_id: OrderID,
     side: OrderType,
     price: Price,
     symbol: macro_calls::TickerSymbol,
-    reason: CancelErrorReason
 }
 
 pub enum ErrorMessage {

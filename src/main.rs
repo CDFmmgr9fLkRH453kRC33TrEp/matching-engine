@@ -52,7 +52,7 @@ struct GlobalState {
 async fn main() -> std::io::Result<()> {
     let start_time = web::Data::new(SystemTime::now());
     pretty_env_logger::init();
-    info!("Starting");
+    info!("Starting...");
 
 
     // should start main server actor here, and pass in as cloned app data to websocket endpoint
@@ -76,7 +76,7 @@ async fn main() -> std::io::Result<()> {
         Columbia_Viz: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_Viz, 100000,Ipv4Addr::new(127,16,123,0),  ['c','u','_','v'])),
     });
 
-
+    // todo: abstract to init file, this is disgusting
     *global_account_state.Columbia_A.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 30000;
     *global_account_state.Columbia_A.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 30000;
     *global_account_state.Columbia_A.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::JNJ).lock().unwrap() = 30000; 

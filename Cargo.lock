@@ -1012,6 +1012,7 @@ dependencies = [
  "actix-web-actors",
  "bytes 0.4.12",
  "csv",
+ "derive_more",
  "enum-map",
  "env_logger 0.10.0",
  "fefix",

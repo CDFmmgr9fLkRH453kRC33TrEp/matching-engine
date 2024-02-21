@@ -446,18 +446,14 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
 
                 // this is very expensive, should implement more rigid parsing. 
                 // TODO: switch to handling in fix/binary instead of json to improve speed
-                let d = &msg.to_string();
-
-                // NEED TO ALLOW FOR CANCEL REQUESTS!!
-                // Should create meta "message" type which contains either cancel or order
-
-                let incoming_message: IncomingMessage = serde_json::from_str(d).unwrap();
+                let incoming_message: IncomingMessage = serde_json::from_str(&msg.to_string()).unwrap();
                 let connection_ip = self.connection_ip;
 
                 match incoming_message {
                     IncomingMessage::OrderRequest(order_req) => {
                         let password_needed = self.global_account_state.index_ref(order_req.trader_id).lock().unwrap().password;
                         if (password_needed != order_req.password) {
+                            // Should return a standardized error message for the client instead of text
                             warn!("Invalid password for provided trader_id: {}", connection_ip);
                             ctx.text("invalid password for provided trader id.");
                         } else {
@@ -504,7 +500,6 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                             ctx.text("invalid password for provided trader id.");
                         } else {
         
-                            // should be passed to fix parser here
         
                             let res =
                                 cancel_order(cancel_req, &self.global_orderbook_state, &self.relay_server_addr, &self.order_counter);
