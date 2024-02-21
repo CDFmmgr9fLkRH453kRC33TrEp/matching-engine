@@ -59,7 +59,8 @@
             position: absolute;
             padding: 1em;
             box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.36);
-            border-radius: 1.5%
+            border-radius: 1.5%;
+            font-size: 20px;
         }
 
         #sm {
@@ -120,13 +121,9 @@
             width: 50%
         }
 
-        li {
-            padding-bottom: 1em;
-        }
-
         .form-group {
             position: relative;
-            padding: 1.5em 0px;
+            padding: 1em 0px;
             margin: 8px 0;
             box-sizing: border-box;
             border: none
@@ -167,10 +164,22 @@
             border: 1px solid rgb(241, 243, 244);
             border-radius: 4px;
             background-color: transparent;
+            color: rgb(241, 243, 244);
         }
 
-        ul {
-            list-style: none;
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        tr:nth-child(even) {
+            background-color: rgb(44, 44, 56);
+        }
+
+        td {
+            text-align: center;
+            align-items:center;
+            justify-content:center;
         }
 
         .hide {
@@ -182,6 +191,12 @@
             max-height: 100%;
             object-fit: contain;
         }
+
+        .subhead {
+            padding-bottom: 1vh;
+        }
+        
+
     </style>
 
     <script type="text/javascript">
@@ -220,12 +235,26 @@
         </section>
     </div>
     <div id="ne">
-        <h>Active Positions</h>
-        <ul id="ActivePositions"></ul>
+        <div class = "subhead"><h>Active Positions</h></div>
+        <table id="ActivePositions">
+            <tr>
+                <th>Symbol</th>
+                <th>Volume</th>
+                <th>Price</th>
+                <th>Total</th>
+            </tr>
+        </table>
     </div>
     <div id="sm">
-        <h>Active Orders</h>
-        <ul id='ActiveOrders'></ul>
+        <div class = "subhead"><h>Active Orders</h></div>
+        <table id='ActiveOrders'>
+            <tr>
+                <th>Symbol</th>
+                <th>Volume</th>
+                <th>Price</th>
+                <th>Type</th>
+            </tr>
+        </table>
     </div>
     <div id="sw">
         <h>Order Form</h>
@@ -283,17 +312,25 @@
         }
         Plotly.newPlot('AAPL', data, layout);
 
-        function addOrder(name, vol, loc) {
+        function addOrder(name, vol, price, type) {
             const itemList = document.getElementById('ActiveOrders');
-            const item = document.createElement('li');
+            
+            const item = document.createElement('tr');
             item.className = 'item';
 
-            const itemName = document.createElement('span');
-            itemName.textContent = name;
+            const Asset = document.createElement('td');
+            Asset.textContent = name;
 
-            const itemDate = document.createElement('span');
-            itemDate.textContent = vol;
+            const Vol = document.createElement('td');
+            Vol.textContent = vol;
 
+            const Price = document.createElement('td');
+            Price.textContent = price;
+
+            const Type = document.createElement('td');
+            Type.textContent = type;
+
+            const ButtonWrapper = document.createElement('td');
             const removeButton = document.createElement('button');
             removeButton.className = 'remove-button';
 
@@ -303,25 +340,36 @@
                 console.log("Cancel order message")
             };
 
-            item.appendChild(itemName);
-            item.appendChild(itemDate);
-            item.appendChild(removeButton);
+            item.appendChild(Asset);
+            item.appendChild(Vol);
+            item.appendChild(Price);
+            item.appendChild(Type);
+            ButtonWrapper.appendChild(removeButton);
+            item.appendChild(ButtonWrapper);
 
             itemList.appendChild(item);
 
         }
 
-        function addPosition(name, vol) {
+        function addPosition(name, vol, price) {
             const itemList = document.getElementById('ActivePositions');
-            const item = document.createElement('li');
+
+            const item = document.createElement('tr');
             item.className = 'item';
 
-            const itemName = document.createElement('span');
-            itemName.textContent = name;
+            const Asset = document.createElement('td');
+            Asset.textContent = name;
 
-            const itemDate = document.createElement('span');
-            itemDate.textContent = vol;
+            const Vol = document.createElement('td');
+            Vol.textContent = vol;
 
+            const Price = document.createElement('td');
+            Price.textContent = price;
+
+            const Total = document.createElement('td');
+            Total.textContent = price * vol;
+
+            const ButtonWrapper = document.createElement('td');
             const removeButton = document.createElement('button');
             removeButton.className = 'remove-button';
 
@@ -331,22 +379,25 @@
                 console.log("Sell message");
             };
 
-            item.appendChild(itemName);
-            item.appendChild(itemDate);
-            item.appendChild(removeButton);
+            item.appendChild(Asset);
+            item.appendChild(Vol);
+            item.appendChild(Price);
+            item.appendChild(Total);
+            ButtonWrapper.appendChild(removeButton);
+            item.appendChild(ButtonWrapper);
 
             itemList.appendChild(item);
         }
 
 
         const sampleItems = [
-            { name: 'AAPL', vol: '500' },
-            { name: 'AAPL', vol: '600' },
-            { name: 'JNJ', vol: '200' },
+            { name: 'AAPL', vol: '500', price: '$100', type: 'BUY' },
+            { name: 'AAPL', vol: '600', price: '$150', type: 'SELL'},
+            { name: 'JNJ', vol: '200', price: '$20', type: 'BUY' },
         ];
 
-        sampleItems.forEach(item => addOrder(item.name, item.vol));
-        sampleItems.forEach(item => addPosition(item.name, item.vol));
+        sampleItems.forEach(item => addOrder(item.name, item.vol, item.price, item.type));
+        sampleItems.forEach(item => addPosition(item.name, item.vol, item.price));
 
         const toggleBtn = document.querySelector(".btn-toggle-chart");
         const charts = document.querySelectorAll(".chart");
@@ -543,6 +594,14 @@
 
 
     };
+
+    function windowResized() {
+            canWidth = 0.95 * document.getElementById('se').clientWidth;
+            canHeight = document.getElementById('se').clientHeight;
+            resizeCanvas(canWidth, canHeight);
+            update_viz("AAPL");
+            Plotly.newPlot('AAPL', data, layout);
+    }
 
     ws.onclose = function () {
         // websocket is closed.
