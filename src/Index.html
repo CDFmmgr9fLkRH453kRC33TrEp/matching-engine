@@ -422,6 +422,14 @@
 
         };
 
+        function windowResized() {
+            canWidth = 0.95 * document.getElementById('se').clientWidth;
+            canHeight = document.getElementById('se').clientHeight;
+            resizeCanvas(canWidth, canHeight);
+            update_viz("AAPL");
+            Plotly.newPlot('AAPL', data, layout);
+        }
+
         ws.onclose = function () {
             // websocket is closed.
             console.log("WS Conn closed :(")
