@@ -114,8 +114,14 @@
 
         if (!start_up_message) {
             data = evt.data;
-            // console.log("data", data);
+            console.log("data", data);
+
+            
+
             const packet = JSON.parse(data);
+
+            console.log("message type", packet["message_type"])
+
             console.log(typeof packet);
             console.log("level", packet["level"]);
             console.log("total_order_vol", packet["total_order_vol"]);
@@ -146,19 +152,18 @@
                 // console.log(orderbook)
                 if (orderbooks.hasOwnProperty(orderbook)) {
                     packet[orderbook]["buy_side_limit_levels"].forEach((x, i) => {
-                        console.log(i, x);
+                        console.log("sm bs", i, x);
                         orderbooks[orderbook]["depth_chart_buy"][i] = parseInt(x["total_volume"])
                     });
-                    packet[orderbook]["sell_side_limit_levels"].forEach((x, i) =>
+                    packet[orderbook]["sell_side_limit_levels"].forEach((x, i) => {
+                        console.log("sm ss", i, x);
                         orderbooks[orderbook]["depth_chart_sell"][i] = parseInt(x["total_volume"])
-                    );
+                    });
                 }
             }
             update_viz(sel.value());
             update_viz(sel.value());
         }
-
-
     };
 
     ws.onclose = function () {

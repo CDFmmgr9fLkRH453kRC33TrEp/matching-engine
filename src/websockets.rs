@@ -10,6 +10,7 @@ use actix_web::Error;
 use actix_web_actors::ws;
 use log::info;
 use plotters::coord::types;
+use uuid::serde;
 use std::env;
 use std::f32::consts::E;
 use std::fmt::format;
@@ -61,11 +62,14 @@ use crate::macro_calls::TickerSymbol;
 use crate::macro_calls::GlobalAccountState;
 use crate::macro_calls::GlobalOrderBookState;
 
-// use crate::parser;
+use ::serde::{Serialize, Deserialize};
 
-struct GlobalState {
-    orderbook_state: crate::macro_calls::GlobalOrderBookState,
-    account_state: crate::macro_calls::GlobalAccountState,
+// use crate::parser;
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "MessageType")]
+enum IncomingMessage {
+    OrderRequest(OrderRequest),
+    CancelRequest(CancelRequest),
 }
 
 fn add_order(
@@ -171,13 +175,13 @@ fn add_order(
     }
 }
 
-async fn cancel_order(
-    cancel_request: web::Json<crate::orderbook::CancelRequest>,
-    data: web::Data<crate::macro_calls::GlobalOrderBookState>,
-    order_counter: &web::Data<Arc<AtomicUsize>>,
+fn cancel_order(
+    cancel_request: crate::orderbook::CancelRequest,
+    data: &web::Data<crate::macro_calls::GlobalOrderBookState>,
     relay_server_addr: &web::Data<Addr<crate::connection_server::Server>>,
+    order_counter: &web::Data<Arc<AtomicUsize>>,
 ) -> String {
-    let cancel_request_inner = cancel_request.into_inner();
+    let cancel_request_inner = cancel_request;
     let symbol = &cancel_request_inner.symbol;
     let order_id = data
         .index_ref(symbol)
@@ -185,6 +189,7 @@ async fn cancel_order(
         .unwrap()
         .handle_incoming_cancel_request(cancel_request_inner, order_counter, relay_server_addr);
     // todo: add proper error handling/messaging
+    // instead of returning none, this should return Result and I can catch it here to propagate up actix framework
     match order_id {
         Some(inner) => String::from(format!("Successfully cancelled order {:?}", inner.order_id)),
         None => String::from(
@@ -366,7 +371,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
         //         // ctx.text("hello");
         //     });
         // } else {
-        let account_id = crate::macro_calls::ip_to_id(connection_ip).unwrap();
+        let account_id: macro_calls::TraderId = crate::macro_calls::ip_to_id(connection_ip).unwrap();
         debug!("Trader with id {:?} connected.", account_id);
         {
             let curr_actor = &mut self
@@ -446,73 +451,88 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                 // NEED TO ALLOW FOR CANCEL REQUESTS!!
                 // Should create meta "message" type which contains either cancel or order
 
-                let t: OrderRequest = serde_json::from_str(d).unwrap();
-
+                let incoming_message: IncomingMessage = serde_json::from_str(d).unwrap();
                 let connection_ip = self.connection_ip;
 
-                let password_needed = self.global_account_state.index_ref(t.trader_id).lock().unwrap().password;
+                match incoming_message {
+                    IncomingMessage::OrderRequest(order_req) => {
+                        let password_needed = self.global_account_state.index_ref(order_req.trader_id).lock().unwrap().password;
+                        if (password_needed != order_req.password) {
+                            warn!("Invalid password for provided trader_id: {}", connection_ip);
+                            ctx.text("invalid password for provided trader id.");
+                        } else {
 
-                let ip_needed = self
-                    .global_account_state
-                    .index_ref(t.trader_id)
-                    .lock()
-                    .unwrap()
-                    .trader_ip;
-
-                if (password_needed != t.password) {
-                    warn!("Invalid password for provided trader_id: {}", connection_ip);
-                    ctx.text("invalid password for provided trader id.");
-                } else {
-                
-                // if (connection_ip != ip_needed) {
-                //     // TODO: switch to login/password instead of id/ip verification to handle reconnections
-                //     warn!("Invalid ip for provided trader_id: {}", connection_ip);
-                //     warn!("connection_ip: {}", connection_ip);
-                //     warn!("ip_needed: {}", ip_needed);
-                //     ctx.text("invalid ip for provided trader id.");
-                //     // ctx.close(None);
-                // } else {
-
-                    // should be passed to fix parser here
-
-
-                    let symbol = t.clone().symbol;
-
-                    let res =
-                        add_order(t, &self.global_orderbook_state, &self.global_account_state, &self.relay_server_addr, &self.order_counter);
-
-                    let t_elp = t_start_o.elapsed().unwrap();
-                    debug!("secs for last order (inside match): {:?}", t_elp);
-                    // elapsed is taking a non negligible time
-                    let secs_elapsed = self
-                        .start_time
-                        .clone()
-                        .into_inner()
-                        .as_ref()
-                        .elapsed()
-                        .unwrap();
-                    debug!(
-                        "time_elapsed from start: {:?}",
-                        usize::try_from(secs_elapsed.as_secs()).unwrap()
-                    );
-                    debug!("total orders processed:{:?}", self.order_counter.load(std::sync::atomic::Ordering::SeqCst));
-                    debug!(
-                        "orders/sec: {:?}",
-                        self.order_counter.load(std::sync::atomic::Ordering::SeqCst) / usize::try_from(secs_elapsed.as_secs()).unwrap()
-                    );
-
-                    // println!("res: {}", res);
-                    // let msg = self.global_orderbook_state.index_ref(&t.symbol).lock().unwrap().to_owned();
-                    // debug!("Issuing Async Msg");
-                    // Broker::<SystemBroker>::issue_async(msg);
-                    // debug!("Issued Async Msg");
-                    // println!("{:?}", serde_json::to_string_pretty(&t));
-
-                    // measured @~14microseconds.
-                    // for some reason goes up as more orders are added :(
-                    ctx.text(res);
+                            let res =
+                                add_order(order_req, &self.global_orderbook_state, &self.global_account_state, &self.relay_server_addr, &self.order_counter);
+        
+                            let t_elp = t_start_o.elapsed().unwrap();
+                            debug!("secs for last order (inside match): {:?}", t_elp);
+                            // elapsed is taking a non negligible time
+                            let secs_elapsed = self
+                                .start_time
+                                .clone()
+                                .into_inner()
+                                .as_ref()
+                                .elapsed()
+                                .unwrap();
+                            debug!(
+                                "time_elapsed from start: {:?}",
+                                usize::try_from(secs_elapsed.as_secs()).unwrap()
+                            );
+                            debug!("total orders processed:{:?}", self.order_counter.load(std::sync::atomic::Ordering::SeqCst));
+                            debug!(
+                                "orders/sec: {:?}",
+                                self.order_counter.load(std::sync::atomic::Ordering::SeqCst) / usize::try_from(secs_elapsed.as_secs()).unwrap()
+                            );
+        
+                            // println!("res: {}", res);
+                            // let msg = self.global_orderbook_state.index_ref(&t.symbol).lock().unwrap().to_owned();
+                            // debug!("Issuing Async Msg");
+                            // Broker::<SystemBroker>::issue_async(msg);
+                            // debug!("Issued Async Msg");
+                            // println!("{:?}", serde_json::to_string_pretty(&t));
+        
+                            // measured @~14microseconds.
+                            // for some reason goes up as more orders are added :(
+                            ctx.text(res);
+                        }
+                    }
+                    IncomingMessage::CancelRequest(cancel_req) => {
+                        let password_needed = self.global_account_state.index_ref(cancel_req.trader_id).lock().unwrap().password;
+                        if (password_needed != cancel_req.password) {
+                            warn!("Invalid password for provided trader_id: {}", connection_ip);
+                            ctx.text("invalid password for provided trader id.");
+                        } else {
+        
+                            // should be passed to fix parser here
+        
+                            let res =
+                                cancel_order(cancel_req, &self.global_orderbook_state, &self.relay_server_addr, &self.order_counter);
+        
+                            let t_elp = t_start_o.elapsed().unwrap();
+                            debug!("secs for last order (inside match): {:?}", t_elp);
+                            // elapsed is taking a non negligible time
+                            let secs_elapsed = self
+                                .start_time
+                                .clone()
+                                .into_inner()
+                                .as_ref()
+                                .elapsed()
+                                .unwrap();
+                            debug!(
+                                "time_elapsed from start: {:?}",
+                                usize::try_from(secs_elapsed.as_secs()).unwrap()
+                            );
+                            debug!("total orders processed:{:?}", self.order_counter.load(std::sync::atomic::Ordering::SeqCst));
+                            debug!(
+                                "orders/sec: {:?}",
+                                self.order_counter.load(std::sync::atomic::Ordering::SeqCst) / usize::try_from(secs_elapsed.as_secs()).unwrap()
+                            );
+                            ctx.text(res);
+                    };
                 }
             }
+        }
 
             // Ping/Pong will be used to make sure the connection is still alive
             Ok(ws::Message::Ping(msg)) => {

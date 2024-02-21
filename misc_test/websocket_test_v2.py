@@ -28,9 +28,9 @@ print("uri:", uri)
 
 async def producer():
     symbol = "AAPL"
-    # price = int(m(math.sin(time.time()+off)))
+    price = int((math.sin(time.time()+off)))
     price = 1
-    # side = random.choice(["Sell", "Buy"])
+    side = random.choice(["Sell", "Buy"])
     side = "Buy"
     jsonreq = {
         'OrderType': side,
