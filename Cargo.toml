@@ -10,6 +10,7 @@ build = "build.rs"
 [build-dependencies]
 bytes = "0.4.12"
 serde = { version = "1", features = ["derive"]}
+serde_json = {version = "1.0"}
 
 [dependencies]
 # orderbook dependencies

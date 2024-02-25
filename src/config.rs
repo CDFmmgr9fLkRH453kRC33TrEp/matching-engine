@@ -13,10 +13,8 @@ use uuid::Uuid;
 use crate::accounts::TraderAccount;
 use crate::orderbook::OrderBook;
 use std::str::FromStr;
-// use crate::orderbook::TraderId;
-// hello
 
-macro_rules! generate_enum {
+macro_rules! generate_ticker_enum {
     ([$($name:ident),*]) => {
         #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
         pub enum TickerSymbol {
@@ -151,19 +149,11 @@ macro_rules! generate_global_state {
                     
         }
     };
-}  
-generate_enum!([
-        AAPL,
-        JNJ
-    ]);
-generate_account_balances_struct!([
-        AAPL,
-        JNJ
-    ]);
-generate_global_state!([
-        AAPL,
-        JNJ
-    ], [
+}
+
+generate_ticker_enum!([AAPL,JNJ]);
+generate_account_balances_struct!([AAPL,JNJ]);
+generate_global_state!([AAPL,JNJ], [
         Columbia_A,
         Columbia_B,
         Columbia_C,

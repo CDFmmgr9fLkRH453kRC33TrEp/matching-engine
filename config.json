@@ -1,0 +1,26 @@
+{   
+    "max_price_cents": 10000,
+    "assets": [
+        {
+            "symbol": "AAPL",
+            "long_name": "Apple",
+            "max_price_cents": 10000
+        },
+        {
+            "symbol": "JNJ",
+            "long_name": "Johnson & Johnson",
+            "max_price_cents": 10000
+        }
+    ],
+    "accounts": [
+        {
+            "trader_id": "Columbia_A",
+            "password": "cu_a",
+            "starting_cash_cents": 10000,
+            "starting_assets": {
+                "AAPL": 1000
+            }
+        }
+    ]
+        
+}

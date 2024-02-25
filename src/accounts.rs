@@ -14,7 +14,7 @@ pub type Password = [char; 4];
 pub struct TraderAccount {
     pub trader_id: config::TraderId,
     pub cents_balance: usize,
-    pub trader_ip: config::TraderIp,
+    // pub trader_ip: config::TraderIp,
     pub current_actor: Option<Addr<websockets::MyWebSocketActor>>,
     pub password: Password,
     // pub websocket actor: actix addr
@@ -61,10 +61,10 @@ impl TraderAccount {
     }
 }
 
-pub fn quickstart_trader_account (trader_id: config::TraderId, cents_balance: usize, trader_ip: config::TraderIp, password: Password) -> TraderAccount {
+pub fn quickstart_trader_account (trader_id: config::TraderId, cents_balance: usize, password: Password) -> TraderAccount {
     TraderAccount {        
         trader_id: trader_id,
-        trader_ip: trader_ip,
+        // trader_ip: trader_ip,
         cents_balance: cents_balance,
         net_cents_balance: cents_balance,
         message_backup: queues::Queue::<Arc<orderbook::Fill>>::new(),

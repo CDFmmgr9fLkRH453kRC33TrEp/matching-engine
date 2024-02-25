@@ -5,15 +5,35 @@ use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use std::{error::Error, io, process};
-
+use serde;
+use std::io::BufReader;
+use serde::Deserialize;
+use serde_json::{self, Value};
 
 fn main() {
-    let symbols = "
-    [
-        AAPL,
-        JNJ
-    ]
-    ";
+
+    // Reads in config file, generates enums etc., populates config.rs
+    // Can be used to reset state after crash
+
+    let file = File::open(Path::new("./config.json")).unwrap();
+    let reader = BufReader::new(file);
+
+    let value: Value = serde_json::from_reader(reader).unwrap();
+
+    let assets_arr = value["assets"].as_array().unwrap();
+    let accounts_arr = value["accounts"].as_array().unwrap();
+
+    let mut symbols = "[".to_owned();
+
+    for asset in assets_arr {
+        symbols.push_str(asset["symbol"].as_str().unwrap());
+        symbols.push_str(",");
+    };
+    
+    // remove trailing comma and close array
+    symbols.pop();
+    symbols.push_str("]");
+
     let account_ids = "
     [
         Columbia_A,
@@ -24,7 +44,6 @@ fn main() {
     ]
     ";
 
-    // let out_dir = env::var("OUT_DIR").unwrap();
     let out_dir = "/Users/caidan/projects/exchange_simulator/matching-engine/src";
     let dest_path = Path::new(&out_dir).join("config.rs");
     let mut f = File::create(&dest_path).unwrap();
@@ -45,10 +64,8 @@ use uuid::Uuid;
 use crate::accounts::TraderAccount;
 use crate::orderbook::OrderBook;
 use std::str::FromStr;
-// use crate::orderbook::TraderId;
-// hello
 
-macro_rules! generate_enum {{
+macro_rules! generate_ticker_enum {{
     ([$($name:ident),*]) => {{
         #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
         pub enum TickerSymbol {{
@@ -183,12 +200,12 @@ macro_rules! generate_global_state {{
                     
         }}
     }};
-}}  
-generate_enum!({});
+}}
+
+generate_ticker_enum!({});
 generate_account_balances_struct!({});
 generate_global_state!({}, {});
 generate_accounts_enum!({});
-
 ",
         symbols.trim(), symbols.trim(), symbols.trim(), account_ids.trim(),  account_ids.trim(),
     );

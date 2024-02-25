@@ -56,14 +56,27 @@ impl GlobalState {
     }
 }
 
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let start_time = web::Data::new(SystemTime::now());
     pretty_env_logger::init();
     info!("Starting...");
 
+    // todo: convert to proper strongly typed deserialization
+    // convert asset enum to be like AAPL(Asset) 
+    // Asset as struct which includes long name, max price, etc. 
+    // convert global state to an enum generated at compile time
+    // let file = File::open(Path::new("./config.json")).unwrap();
+    // let reader = BufReader::new(file);
 
+    // let value: Value = serde_json::from_reader(reader).unwrap();
+
+    // let assets_arr = value["assets"].as_array().unwrap();
+    // let accounts_arr = value["accounts"].as_array().unwrap();
+
+
+    info!("State initialized");
+    
     // should start main server actor here, and pass in as cloned app data to websocket endpoint
     let relay_server = connection_server::Server::new().start();
 
@@ -78,14 +91,14 @@ async fn main() -> std::io::Result<()> {
     });
 
     let global_account_state = web::Data::new(config::GlobalAccountState {        
-        Columbia_A: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_A, 100000, Ipv4Addr::new(10,206,113,179), ['c','u','_','a'])),
-        Columbia_B: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_B, 100000,Ipv4Addr::new(127,16,123,2),  ['c','u','_','b'])),
-        Columbia_C: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_C, 100000, Ipv4Addr::new(127,16,123,3),  ['c','u','_','c'])),
-        Columbia_D: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_D, 100000, Ipv4Addr::new(127,16,123,4),  ['c','u','_','d'])),
-        Columbia_Viz: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_Viz, 100000,Ipv4Addr::new(127,16,123,0),  ['c','u','_','v'])),
+        Columbia_A: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_A, 100000, ['c','u','_','a'])),
+        Columbia_B: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_B, 100000,  ['c','u','_','b'])),
+        Columbia_C: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_C, 100000,  ['c','u','_','c'])),
+        Columbia_D: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_D, 100000,  ['c','u','_','d'])),
+        Columbia_Viz: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_Viz, 100000,  ['c','u','_','v'])),
     });
 
-    // todo: abstract to config file, this is disgusting
+    // todo: abstract to config file, this is disgusting (see config.json -> build.rs -> config.rs)
     *global_account_state.Columbia_A.lock().unwrap().asset_balances.index_ref(&config::TickerSymbol::AAPL).lock().unwrap() = 30000;
     *global_account_state.Columbia_A.lock().unwrap().net_asset_balances.index_ref(&config::TickerSymbol::AAPL).lock().unwrap() = 30000;
     *global_account_state.Columbia_A.lock().unwrap().asset_balances.index_ref(&config::TickerSymbol::JNJ).lock().unwrap() = 30000; 
