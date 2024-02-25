@@ -8,6 +8,5 @@ use crate::{config::TraderIp, orderbook::{TraderId, LimLevUpdate}};
 #[rtype(result = "()")]
 pub struct OpenMessage{
     pub ip: TraderIp,
-    pub id: TraderId,
     pub addr: Recipient<Arc<LimLevUpdate>>
 }

@@ -275,7 +275,6 @@ impl Actor for MyWebSocketActor {
         // self.subscribe_system_async::<orderbook::LimLevUpdate>(ctx);
         self.relay_server_addr.do_send(OpenMessage{
             ip : self.connection_ip,
-            id: crate::config::ip_to_id(self.connection_ip).unwrap(), 
             addr: ctx.address().recipient()
         });
         debug!("Subscribed");
