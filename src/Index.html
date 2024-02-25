@@ -436,5 +436,8 @@
         setup()
         update_viz("AAPL")
 
+    fetch('SimulatedPriceData.txt')
+        .then(response => response.text())
+        .then(text => console.log(text))
 </script>
 </html>
