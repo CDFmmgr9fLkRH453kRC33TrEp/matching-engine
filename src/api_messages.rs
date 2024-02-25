@@ -1,7 +1,7 @@
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::macro_calls;
+use crate::config;
 use crate::orderbook::OrderID;
 use crate::orderbook::OrderType;
 use crate::orderbook::Price;
@@ -23,7 +23,7 @@ pub struct CancelErrorMessage {
     order_id: OrderID,
     side: OrderType,
     price: Price,
-    symbol: macro_calls::TickerSymbol,
+    symbol: config::TickerSymbol,
 }
 
 pub enum ErrorMessage {

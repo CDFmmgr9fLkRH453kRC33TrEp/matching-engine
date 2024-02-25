@@ -23,16 +23,10 @@ fn main() {
         Columbia_Viz
     ]
     ";
-    // todo: make this load from csv?
-    let account_ips = "
-    [
-        \"172.16.123.1\".parse::<Ipv4Addr>().unwrap(),
-        \"172.16.123.2\".parse::<Ipv4Addr>().unwrap(),
-    ]
-    ";
+
     // let out_dir = env::var("OUT_DIR").unwrap();
     let out_dir = "/Users/caidan/projects/exchange_simulator/matching-engine/src";
-    let dest_path = Path::new(&out_dir).join("macro_calls.rs");
+    let dest_path = Path::new(&out_dir).join("config.rs");
     let mut f = File::create(&dest_path).unwrap();
     let content = format!(
         "
@@ -42,24 +36,6 @@ pub type TraderIp = std::net::Ipv4Addr;
 use std::io;
 use actix::Addr;
 use crate::websockets::MyWebSocketActor;
-
-
-// TODO: clean up this mess!!!!!
-pub fn ip_to_id (ip: Ipv4Addr) -> Result<crate::macro_calls::TraderId, io::Error> {{
-    if (ip == Ipv4Addr::new(127,16,123,1)) {{
-        return Ok(crate::macro_calls::TraderId::Columbia_A);
-    }} else if (ip == Ipv4Addr::new(10,206,113,179)){{
-        return Ok(crate::macro_calls::TraderId::Columbia_B);
-    }}else if (ip == Ipv4Addr::new(127,16,123,3)){{
-        return Ok(crate::macro_calls::TraderId::Columbia_C);
-    }} else if (ip == Ipv4Addr::new(127,16,123,4)){{
-        return Ok(crate::macro_calls::TraderId::Columbia_D);
-    }}  else if (ip == Ipv4Addr::new(127,16,123,0)){{
-        return Ok(crate::macro_calls::TraderId::Columbia_Viz);
-    }} else {{
-        panic!(\"not a known ip\");
-    }}
-}}
 
 use strum_macros::EnumIter;
 use core::fmt::Debug;
@@ -199,7 +175,7 @@ macro_rules! generate_global_state {{
         }}
 
         impl GlobalAccountState {{
-            pub fn index_ref (&self, account_id:crate::macro_calls::TraderId,) -> &Mutex<crate::accounts::TraderAccount>{{
+            pub fn index_ref (&self, account_id:crate::config::TraderId,) -> &Mutex<crate::accounts::TraderAccount>{{
                 match account_id {{
                     $(TraderId::$account_id => {{&self.$account_id}}, )*
                 }}

@@ -43,7 +43,7 @@ impl Handler<crate::orderbook::LimLevUpdate> for Server {
     }
 }
 
-
+// TODO: handle websocket disconnects by removing actors from list
 impl Handler<crate::message_types::OpenMessage> for Server{
     type Result = ();
     fn handle(

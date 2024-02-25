@@ -3,6 +3,8 @@ import websockets
 import argparse
 import json
 import time
+import math
+import random
 
 
 
@@ -28,11 +30,12 @@ print("uri:", uri)
 
 async def producer():
     symbol = "AAPL"
-    price = int((math.sin(time.time()+off)))
+    price = int((math.sin(time.time())))
     price = 1
     side = random.choice(["Sell", "Buy"])
     side = "Buy"
     jsonreq = {
+        'MessageType': 'OrderRequest',
         'OrderType': side,
         'Amount': 1,
         'Price': price,
@@ -60,7 +63,7 @@ async def handler(websocket):
         task.cancel()
 
 async def main():
-    async with websockets.connect(uri) as websocket:
+    async with websockets.connect(uri, extra_headers = {"TraderId":args.id} ) as websocket:
         await handler(websocket)
 
 if __name__ == "__main__":

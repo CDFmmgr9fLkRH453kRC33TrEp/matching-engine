@@ -1,7 +1,7 @@
 use crate::accounts;
 use crate::connection_server;
-use crate::macro_calls;
-use crate::macro_calls::TickerSymbol;
+use crate::config;
+use crate::config::TickerSymbol;
 use queues;
 use queues::IsQueue;
 use std::sync::Arc;
@@ -21,7 +21,7 @@ use uuid::Uuid;
 use core::sync::atomic::AtomicUsize;
 pub type OrderID = usize;
 pub type Price = usize;
-pub type TraderId = macro_calls::TraderId;
+pub type TraderId = config::TraderId;
 // for loading csv test files
 // use std::env;
 use serde::{Deserialize, Serialize};
@@ -75,7 +75,7 @@ pub enum OrderType {
 pub struct OrderBook {
     /// Struct representing a double sided order book for a single product.
     // todo: add offset to allow for non 0 min prices
-    pub symbol: macro_calls::TickerSymbol,
+    pub symbol: config::TickerSymbol,
     // buy side in increasing price order
     buy_side_limit_levels: Vec<LimitLevel>,
     // sell side in increasing price order
@@ -107,7 +107,7 @@ pub struct OrderRequest {
     pub price: Price,
     pub order_type: OrderType,
     pub trader_id: TraderId,
-    pub symbol: macro_calls::TickerSymbol,
+    pub symbol: config::TickerSymbol,
     pub password: accounts::Password,
 }
 
@@ -116,7 +116,7 @@ pub struct Order {
     /// Struct representing an existing order in the order book
     pub order_id: OrderID,
     pub trader_id: TraderId,
-    pub symbol: macro_calls::TickerSymbol,
+    pub symbol: config::TickerSymbol,
     pub amount: usize,
     pub price: Price,
     pub order_type: OrderType,
@@ -134,7 +134,7 @@ pub struct CancelRequest {
     pub order_id: OrderID,
     pub trader_id: TraderId,
     price: Price,
-    pub symbol: macro_calls::TickerSymbol,
+    pub symbol: config::TickerSymbol,
     side: OrderType,
     pub password: accounts::Password,
 }
@@ -153,7 +153,7 @@ pub struct Fill {
     pub buy_trader_id: TraderId,
     pub amount: usize,
     pub price: Price,
-    pub symbol: macro_calls::TickerSymbol,
+    pub symbol: config::TickerSymbol,
     pub trade_time: u8,
 }
 impl Message for Fill {
@@ -206,6 +206,7 @@ impl OrderBook {
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
     ) -> Option<Order> {
         debug!("remove_order_by_uuid trigger");
+        
         match cancel_request.side {
             OrderType::Buy => {
                 let mut index = 0;
@@ -262,7 +263,7 @@ impl OrderBook {
     pub fn handle_incoming_order_request(
         &mut self,
         new_order_request: OrderRequest,
-        accounts_data: &web::Data<macro_calls::GlobalAccountState>,
+        accounts_data: &web::Data<config::GlobalAccountState>,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
         order_counter: &web::Data<Arc<AtomicUsize>>,
     ) -> Option<OrderID> {
@@ -284,7 +285,7 @@ impl OrderBook {
     fn handle_incoming_sell(
         &mut self,
         mut sell_order: OrderRequest,
-        accounts_data: &web::Data<macro_calls::GlobalAccountState>,
+        accounts_data: &web::Data<config::GlobalAccountState>,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
         order_counter: &web::Data<Arc<AtomicUsize>>,
     ) -> Option<OrderID> {
@@ -431,7 +432,7 @@ impl OrderBook {
     fn handle_incoming_buy(
         &mut self,
         mut buy_order: OrderRequest,
-        accounts_data: &web::Data<macro_calls::GlobalAccountState>,
+        accounts_data: &web::Data<config::GlobalAccountState>,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
         order_counter: &web::Data<Arc<AtomicUsize>>,
     ) -> Option<OrderID> {
@@ -689,13 +690,13 @@ impl OrderBook {
     // }
 }
 pub fn quickstart_order_book(
-    symbol: macro_calls::TickerSymbol,
+    symbol: config::TickerSymbol,
     min_price: Price,
     max_price: Price,
     capacity_per_lim_lev: usize,
 ) -> OrderBook {
     OrderBook {
-        symbol: macro_calls::TickerSymbol::from(symbol),
+        symbol: config::TickerSymbol::from(symbol),
         buy_side_limit_levels: (min_price..max_price)
             .map(|x| LimitLevel {
                 price: x,
@@ -717,7 +718,7 @@ pub fn quickstart_order_book(
 }
 
 fn main() {
-    let mut order_book = quickstart_order_book(macro_calls::TickerSymbol::AAPL, 0, 11, 1000);
+    let mut order_book = quickstart_order_book(config::TickerSymbol::AAPL, 0, 11, 1000);
     // if let Err(err) = order_book.load_csv_test_data("src/test_orders.csv".into()) {
     //     println!("{}", err);
     //     process::exit(1);

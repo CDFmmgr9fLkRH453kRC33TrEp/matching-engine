@@ -27,7 +27,7 @@ use actix_broker::{ArbiterBroker, Broker, BrokerIssue, BrokerSubscribe, SystemBr
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(4);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 use crate::message_types::OpenMessage;
-use crate::orderbook::Fill;
+use crate::orderbook::{Fill, TraderId};
 use crate::websockets::ws::CloseCode::Policy;
 use crate::websockets::ws::CloseReason;
 use actix_web::{get, post, web, App, HttpRequest, HttpResponse, HttpServer, Responder};
@@ -48,19 +48,19 @@ use std::any::type_name;
 pub use crate::accounts::TraderAccount;
 // pub use crate::orderbook::TickerSymbol;
 pub use crate::accounts::quickstart_trader_account;
-use crate::macro_calls::TraderIp;
+use crate::config::TraderIp;
 pub use crate::orderbook::quickstart_order_book;
 pub use crate::orderbook::CancelRequest;
 pub use crate::orderbook::OrderBook;
 pub use crate::orderbook::OrderRequest;
 pub use crate::orderbook::OrderType;
-use crate::{macro_calls, orderbook};
+use crate::{config, orderbook};
 
-use crate::macro_calls::AssetBalances;
-use crate::macro_calls::TickerSymbol;
+use crate::config::AssetBalances;
+use crate::config::TickerSymbol;
 
-use crate::macro_calls::GlobalAccountState;
-use crate::macro_calls::GlobalOrderBookState;
+use crate::config::GlobalAccountState;
+use crate::config::GlobalOrderBookState;
 
 use ::serde::{Serialize, Deserialize};
 
@@ -74,8 +74,8 @@ enum IncomingMessage {
 
 fn add_order(
     order_request: crate::orderbook::OrderRequest,
-    data: &web::Data<crate::macro_calls::GlobalOrderBookState>,
-    accounts_data: &web::Data<crate::macro_calls::GlobalAccountState>,
+    data: &web::Data<crate::config::GlobalOrderBookState>,
+    accounts_data: &web::Data<crate::config::GlobalAccountState>,
     // start_time: &web::Data<SystemTime>,
     relay_server_addr: &web::Data<Addr<crate::connection_server::Server>>,
     order_counter: &web::Data<Arc<AtomicUsize>>,
@@ -177,7 +177,7 @@ fn add_order(
 
 fn cancel_order(
     cancel_request: crate::orderbook::CancelRequest,
-    data: &web::Data<crate::macro_calls::GlobalOrderBookState>,
+    data: &web::Data<crate::config::GlobalOrderBookState>,
     relay_server_addr: &web::Data<Addr<crate::connection_server::Server>>,
     order_counter: &web::Data<Arc<AtomicUsize>>,
 ) -> String {
@@ -200,9 +200,10 @@ fn cancel_order(
 
 pub struct MyWebSocketActor {
     connection_ip: TraderIp,
+    associated_id: TraderId,
     hb: Instant,
-    global_account_state: web::Data<crate::macro_calls::GlobalAccountState>,
-    global_orderbook_state: web::Data<crate::macro_calls::GlobalOrderBookState>,
+    global_account_state: web::Data<crate::config::GlobalAccountState>,
+    global_orderbook_state: web::Data<crate::config::GlobalOrderBookState>,
     // for testing. 
     start_time: web::Data<SystemTime>,
     t_orders: usize,
@@ -227,23 +228,19 @@ impl MyWebSocketActor {
 pub async fn websocket(
     req: HttpRequest,
     stream: web::Payload,
-    orderbook_data: web::Data<crate::macro_calls::GlobalOrderBookState>,
-    accounts_data: web::Data<crate::macro_calls::GlobalAccountState>,
+    orderbook_data: web::Data<crate::config::GlobalOrderBookState>,
+    accounts_data: web::Data<crate::config::GlobalAccountState>,
     start_time: web::Data<SystemTime>,
     relay_server_addr: web::Data<Addr<crate::connection_server::Server>>,
     order_counter: web::Data<Arc<AtomicUsize>>,
 ) -> Result<HttpResponse, Error> {
     let conninfo = req.connection_info().clone();
+    
     log::info!(
         "New websocket connection with peer_addr {:?}",
         conninfo.peer_addr()
     );
 
-    // todo: change ws:start to be adding a stream to existing actor.
-
-    let id = macro_calls::ip_to_id(conninfo.peer_addr().unwrap().parse().unwrap()).unwrap();
-
-    // let password_needed = req.take_payload( );
 
     ws::start(
         MyWebSocketActor {
@@ -251,9 +248,9 @@ pub async fn websocket(
                 .connection_info()
                 .realip_remote_addr()
                 .unwrap()
-                .clone()
                 .parse()
                 .unwrap(),
+            associated_id: <TraderId as std::str::FromStr>::from_str(req.headers().get("TraderId").unwrap().to_str().unwrap()).unwrap(),
             hb: Instant::now(),
             global_account_state: accounts_data.clone(),
             global_orderbook_state: orderbook_data.clone(),
@@ -276,7 +273,6 @@ impl Actor for MyWebSocketActor {
         // self.subscribe_system_async::<orderbook::LimLevUpdate>(ctx);
         self.relay_server_addr.do_send(OpenMessage{
             ip : self.connection_ip,
-            id: crate::macro_calls::ip_to_id(self.connection_ip).unwrap(), 
             addr: ctx.address().recipient()
         });
         debug!("Subscribed");
@@ -284,7 +280,7 @@ impl Actor for MyWebSocketActor {
     }
 
     fn stopped(&mut self, ctx: &mut Self::Context) {
-        let account_id = crate::macro_calls::ip_to_id(self.connection_ip).unwrap();
+        let account_id = self.associated_id;
         let curr_actor = &mut self
             .global_account_state
             .index_ref(account_id)
@@ -355,23 +351,8 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
     fn started(&mut self, ctx: &mut Self::Context) {
         // Broker::<SystemBroker>::issue_async(self.global_orderbook_state);
         let connection_ip = self.connection_ip;
+        let account_id = self.associated_id;
 
-        // if (connection_ip
-        //     == env::var("GRAFANAIP")
-        //         .expect("$GRAFANAIP is not set")
-        //         .parse::<TraderIp>()
-        //         .unwrap())
-        // {
-        //     info!("New grafana connection");
-        //     let dur = env::var("GRAFANAPOLLDUR")
-        //         .expect("$GRAFANAPOLLDUR is not set")
-        //         .parse::<u64>()
-        //         .unwrap();
-        //     ctx.run_interval(Duration::new(dur, 0), |act, ctx| {
-        //         // ctx.text("hello");
-        //     });
-        // } else {
-        let account_id: macro_calls::TraderId = crate::macro_calls::ip_to_id(connection_ip).unwrap();
         debug!("Trader with id {:?} connected.", account_id);
         {
             let curr_actor = &mut self
@@ -393,7 +374,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                         ctx.stop();
                     }
                 }
-                None => *curr_actor = Some(ctx.address()),
+                None => {
+                    *curr_actor = Some(ctx.address())
+                }
             }
         }
         let message_queue = &mut self
