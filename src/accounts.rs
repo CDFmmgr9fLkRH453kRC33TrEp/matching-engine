@@ -1,8 +1,8 @@
 use uuid::Uuid;
 use crate::orderbook;
-use crate::macro_calls;
+use crate::config;
 use crate::websockets;
-use macro_calls::AssetBalances;
+use config::AssetBalances;
 use actix::Addr;
 use queues::IsQueue;
 use std::sync::Arc;
@@ -12,9 +12,9 @@ use queues;
 pub type Password = [char; 4];
 
 pub struct TraderAccount {
-    pub trader_id: macro_calls::TraderId,
+    pub trader_id: config::TraderId,
     pub cents_balance: usize,
-    pub trader_ip: macro_calls::TraderIp,
+    pub trader_ip: config::TraderIp,
     pub current_actor: Option<Addr<websockets::MyWebSocketActor>>,
     pub password: Password,
     // pub websocket actor: actix addr
@@ -36,9 +36,9 @@ pub struct TraderAccount {
     pub net_cents_balance: usize,
     // asset_balances, net_asset_balances updated on fill event, and so should be current
     // in asset lots
-    pub asset_balances: macro_calls::AssetBalances,
+    pub asset_balances: config::AssetBalances,
     // in shares, equal to the total of owned shares minus the total of outstanding sell orders' shares (i.e. should be \geq 0)
-    pub net_asset_balances: macro_calls::AssetBalances,
+    pub net_asset_balances: config::AssetBalances,
 }
 
 impl TraderAccount {
@@ -61,7 +61,7 @@ impl TraderAccount {
     }
 }
 
-pub fn quickstart_trader_account (trader_id: macro_calls::TraderId, cents_balance: usize, trader_ip: macro_calls::TraderIp, password: Password) -> TraderAccount {
+pub fn quickstart_trader_account (trader_id: config::TraderId, cents_balance: usize, trader_ip: config::TraderIp, password: Password) -> TraderAccount {
     TraderAccount {        
         trader_id: trader_id,
         trader_ip: trader_ip,
@@ -70,9 +70,9 @@ pub fn quickstart_trader_account (trader_id: macro_calls::TraderId, cents_balanc
         message_backup: queues::Queue::<Arc<orderbook::Fill>>::new(),
         // asset_balances, net_asset_balances updated on fill event, and so should be current
         // in asset lots
-        asset_balances: macro_calls::AssetBalances::new(),
+        asset_balances: config::AssetBalances::new(),
         // in cents
-        net_asset_balances: macro_calls::AssetBalances::new(),
+        net_asset_balances: config::AssetBalances::new(),
         current_actor: None,
         password: password
     }

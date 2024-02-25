@@ -2,7 +2,7 @@
 use actix::*;
 use std::sync::Arc;
 
-use crate::{macro_calls::TraderIp, orderbook::{TraderId, LimLevUpdate}};
+use crate::{config::TraderIp, orderbook::{TraderId, LimLevUpdate}};
 
 #[derive(Message)]
 #[rtype(result = "()")]

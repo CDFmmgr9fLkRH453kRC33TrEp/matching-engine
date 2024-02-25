@@ -5,7 +5,7 @@ use std::sync::Mutex;
 extern crate env_logger;
 use std::net::Ipv4Addr;
 use actix::Actor;
-use crate::macro_calls::TraderId;
+use crate::config::TraderId;
 
 
 extern crate pretty_env_logger;
@@ -14,7 +14,7 @@ extern crate pretty_env_logger;
 mod orderbook;
 mod api_messages;
 mod accounts;
-mod macro_calls;
+mod config;
 mod websockets;
 mod connection_server;
 mod message_types;
@@ -35,16 +35,25 @@ pub use crate::orderbook::CancelRequest;
 pub use crate::orderbook::quickstart_order_book;
 pub use crate::accounts::quickstart_trader_account;
 
-use macro_calls::TickerSymbol;
-use macro_calls::AssetBalances;
+use config::TickerSymbol;
+use config::AssetBalances;
 
-use macro_calls::GlobalOrderBookState;
-use macro_calls::GlobalAccountState;
+use config::GlobalOrderBookState;
+use config::GlobalAccountState;
 
 
 struct GlobalState {    
-    orderbook_state:macro_calls::GlobalOrderBookState,
-    account_state: macro_calls::GlobalAccountState
+    orderbook_state:config::GlobalOrderBookState,
+    account_state: config::GlobalAccountState
+}
+
+impl GlobalState {
+    fn dump_state(){
+
+    }
+    fn load_state(){
+
+    }
 }
 
 
@@ -63,37 +72,37 @@ async fn main() -> std::io::Result<()> {
     // to do: add actix guards to confirm correctly formed requests etc. 
     // to do: add actix guards to confirm credit checks etc. 
     // to do: move this declaration to macro_calls file to generate fields automatically
-    let global_orderbook_state = web::Data::new(macro_calls::GlobalOrderBookState {
-        AAPL: Mutex::new(quickstart_order_book(macro_calls::TickerSymbol::AAPL, 0, 11, 10000)), 
-        JNJ: Mutex::new(quickstart_order_book(macro_calls::TickerSymbol::JNJ, 0, 11, 10000)), 
+    let global_orderbook_state = web::Data::new(config::GlobalOrderBookState {
+        AAPL: Mutex::new(quickstart_order_book(config::TickerSymbol::AAPL, 0, 11, 10000)), 
+        JNJ: Mutex::new(quickstart_order_book(config::TickerSymbol::JNJ, 0, 11, 10000)), 
     });
 
-    let global_account_state = web::Data::new(macro_calls::GlobalAccountState {        
-        Columbia_A: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_A, 100000, Ipv4Addr::new(10,206,113,179), ['c','u','_','a'])),
-        Columbia_B: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_B, 100000,Ipv4Addr::new(127,16,123,2),  ['c','u','_','b'])),
-        Columbia_C: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_C, 100000, Ipv4Addr::new(127,16,123,3),  ['c','u','_','c'])),
-        Columbia_D: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_D, 100000, Ipv4Addr::new(127,16,123,4),  ['c','u','_','d'])),
-        Columbia_Viz: Mutex::new(accounts::quickstart_trader_account(macro_calls::TraderId::Columbia_Viz, 100000,Ipv4Addr::new(127,16,123,0),  ['c','u','_','v'])),
+    let global_account_state = web::Data::new(config::GlobalAccountState {        
+        Columbia_A: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_A, 100000, Ipv4Addr::new(10,206,113,179), ['c','u','_','a'])),
+        Columbia_B: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_B, 100000,Ipv4Addr::new(127,16,123,2),  ['c','u','_','b'])),
+        Columbia_C: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_C, 100000, Ipv4Addr::new(127,16,123,3),  ['c','u','_','c'])),
+        Columbia_D: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_D, 100000, Ipv4Addr::new(127,16,123,4),  ['c','u','_','d'])),
+        Columbia_Viz: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_Viz, 100000,Ipv4Addr::new(127,16,123,0),  ['c','u','_','v'])),
     });
 
-    // todo: abstract to init file, this is disgusting
-    *global_account_state.Columbia_A.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 30000;
-    *global_account_state.Columbia_A.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 30000;
-    *global_account_state.Columbia_A.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::JNJ).lock().unwrap() = 30000; 
-    *global_account_state.Columbia_A.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::JNJ).lock().unwrap() = 30000;  
-    *global_account_state.Columbia_B.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 30000;
-    *global_account_state.Columbia_B.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 30000;  
-    *global_account_state.Columbia_B.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::JNJ).lock().unwrap() = 30000; 
-    *global_account_state.Columbia_B.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::JNJ).lock().unwrap() = 30000;    
+    // todo: abstract to config file, this is disgusting
+    *global_account_state.Columbia_A.lock().unwrap().asset_balances.index_ref(&config::TickerSymbol::AAPL).lock().unwrap() = 30000;
+    *global_account_state.Columbia_A.lock().unwrap().net_asset_balances.index_ref(&config::TickerSymbol::AAPL).lock().unwrap() = 30000;
+    *global_account_state.Columbia_A.lock().unwrap().asset_balances.index_ref(&config::TickerSymbol::JNJ).lock().unwrap() = 30000; 
+    *global_account_state.Columbia_A.lock().unwrap().net_asset_balances.index_ref(&config::TickerSymbol::JNJ).lock().unwrap() = 30000;  
+    *global_account_state.Columbia_B.lock().unwrap().asset_balances.index_ref(&config::TickerSymbol::AAPL).lock().unwrap() = 30000;
+    *global_account_state.Columbia_B.lock().unwrap().net_asset_balances.index_ref(&config::TickerSymbol::AAPL).lock().unwrap() = 30000;  
+    *global_account_state.Columbia_B.lock().unwrap().asset_balances.index_ref(&config::TickerSymbol::JNJ).lock().unwrap() = 30000; 
+    *global_account_state.Columbia_B.lock().unwrap().net_asset_balances.index_ref(&config::TickerSymbol::JNJ).lock().unwrap() = 30000;    
 
-    *global_account_state.Columbia_C.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 50000;
-    *global_account_state.Columbia_C.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 50000;
-    *global_account_state.Columbia_C.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::JNJ).lock().unwrap() = 50000; 
-    *global_account_state.Columbia_C.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::JNJ).lock().unwrap() = 50000;  
-    *global_account_state.Columbia_D.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 10000;
-    *global_account_state.Columbia_D.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::AAPL).lock().unwrap() = 10000;  
-    *global_account_state.Columbia_D.lock().unwrap().asset_balances.index_ref(&macro_calls::TickerSymbol::JNJ).lock().unwrap() = 80000; 
-    *global_account_state.Columbia_D.lock().unwrap().net_asset_balances.index_ref(&macro_calls::TickerSymbol::JNJ).lock().unwrap() = 80000;
+    *global_account_state.Columbia_C.lock().unwrap().asset_balances.index_ref(&config::TickerSymbol::AAPL).lock().unwrap() = 50000;
+    *global_account_state.Columbia_C.lock().unwrap().net_asset_balances.index_ref(&config::TickerSymbol::AAPL).lock().unwrap() = 50000;
+    *global_account_state.Columbia_C.lock().unwrap().asset_balances.index_ref(&config::TickerSymbol::JNJ).lock().unwrap() = 50000; 
+    *global_account_state.Columbia_C.lock().unwrap().net_asset_balances.index_ref(&config::TickerSymbol::JNJ).lock().unwrap() = 50000;  
+    *global_account_state.Columbia_D.lock().unwrap().asset_balances.index_ref(&config::TickerSymbol::AAPL).lock().unwrap() = 10000;
+    *global_account_state.Columbia_D.lock().unwrap().net_asset_balances.index_ref(&config::TickerSymbol::AAPL).lock().unwrap() = 10000;  
+    *global_account_state.Columbia_D.lock().unwrap().asset_balances.index_ref(&config::TickerSymbol::JNJ).lock().unwrap() = 80000; 
+    *global_account_state.Columbia_D.lock().unwrap().net_asset_balances.index_ref(&config::TickerSymbol::JNJ).lock().unwrap() = 80000;
 
     // handlers discriminate based on type, so can safely pass both pieces of state here
     HttpServer::new(move || {
