@@ -270,6 +270,7 @@
         <table id = "stats">
             <tr>
                 <th class="header">Balance: $1,000,000</th>
+                <th class="header">Available: </th>
                 <th class="header">Unrealized P/L: $50,000</th>
                 <th class="header">Volume: 80 trades/minute</th>
             </tr>
@@ -658,7 +659,7 @@
 
 
         const sampleItems = [
-            { name: 'AAPL', vol: '500', price: '$100', type: 'BUY' },
+            { name: 'AAPL', vol: '500', price: '$100', type: 'BUY', id: "xyz" },
             { name: 'AAPL', vol: '600', price: '$150', type: 'SELL'},
             { name: 'JNJ', vol: '200', price: '$20', type: 'BUY' },
         ];
@@ -750,6 +751,7 @@
             }
             sel.changed(select_evt);
             // select_evt()
+            setInterval("newCandle()", 10000)
             update_viz('AAPL')
         }
 
@@ -811,7 +813,7 @@
             update_viz(sel.value())
         }
 
-        function fill_evt(evt) {
+        function any_fill_evt(evt) {
             data = evt.data;
             const packet = JSON.parse(data);
             symbol = packet[symbol];
@@ -859,11 +861,29 @@
         start_up_message = true;
         // receive a message from the server
         ws.onmessage = function (evt) {
-            
-            if (!start_up_message) {
+            const packet = JSON.parse(data);
+            msg_type = packet['MessageType'];
+            if (start_up_message) {
+                data = evt.data;
+                start_up_message = false
+                // this is the orderbook dump
+                // console.log(packet)
+                for (var orderbook in packet) {
+                    // console.log(orderbook)
+                    if (orderbooks.hasOwnProperty(orderbook)) {
+                        packet[orderbook]["buy_side_limit_levels"].forEach((x, i) => {
+                            console.log(i, x);
+                            orderbooks[orderbook]["depth_chart_buy"][i] = parseInt(x["total_volume"])
+                        });
+                        packet[orderbook]["sell_side_limit_levels"].forEach((x, i) =>
+                            orderbooks[orderbook]["depth_chart_sell"][i] = parseInt(x["total_volume"])
+                        );
+                    }
+                }
+                update_viz(sel.value());
+            } else if (msg_type == "lim_level_update") {
                 data = evt.data;
                 // console.log("data", data);
-                const packet = JSON.parse(data);
                 console.log(typeof packet);
                 console.log("level", packet["level"]);
                 console.log("total_order_vol", packet["total_order_vol"]);
@@ -884,29 +904,17 @@
                 if (sel.value() == symbol) {
                     update_viz(symbol);
                 }
-            } else {
-                data = evt.data;
-                start_up_message = false
-                // this is the orderbook dump
-                const packet = JSON.parse(data);
-                // console.log(packet)
-                for (var orderbook in packet) {
-                    // console.log(orderbook)
-                    if (orderbooks.hasOwnProperty(orderbook)) {
-                        packet[orderbook]["buy_side_limit_levels"].forEach((x, i) => {
-                            console.log(i, x);
-                            orderbooks[orderbook]["depth_chart_buy"][i] = parseInt(x["total_volume"])
-                        });
-                        packet[orderbook]["sell_side_limit_levels"].forEach((x, i) =>
-                            orderbooks[orderbook]["depth_chart_sell"][i] = parseInt(x["total_volume"])
-                        );
-                    }
-                }
-                update_viz(sel.value());
-                update_viz(sel.value());
+            } else if (msg_type == "anyfill") {
+                any_fill_evt(evt);
+            } else if (msg_type == 'order_id') {
+                //add to active orders
+            } else if (msg_type == "YourFillMessage") {
+                //add to active positions
+            } else if (msg_type == "lim_level_update") {
+
+            } else if (msg_type == "error") {
+                
             }
-
-
         };
 
         function windowResized() {
@@ -924,7 +932,7 @@
             console.log("WS Conn closed :(")
         };
 
-        setInterval("newCandle()", 10000)
+        
         setup()
         update_viz("AAPL")
 
