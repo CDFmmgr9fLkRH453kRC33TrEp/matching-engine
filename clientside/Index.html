@@ -30,6 +30,18 @@
             background: #363641;
             top: 0.4%;
             left: 20.4%;
+            right: 20.4%;
+            bottom: 90.8%;
+            position: absolute;
+            padding: 1em;
+            box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.4), 0 6px 20px 0 rgba(0, 0, 0, 0.36);
+            border-radius: 1.5%;
+        }
+
+        #login {
+            background: rgb(54, 54, 65);
+            top: 0.4%;
+            left: 80.4%;
             right: 0.4%;
             bottom: 90.8%;
             position: absolute;
@@ -111,6 +123,30 @@
             border-radius: 1.5%;            
         }
 
+        .error {
+            position: absolute;
+            z-index: 10;
+            bottom: 10%;
+            top: 80%;
+            left: 40%;
+            right: 40%;
+            background-color: red;
+            animation: fade 2s;
+        }
+
+        @keyframes fade {
+            0% {
+                opacity: 1;
+                bottom: 10%;
+                top: 80%;
+            }
+            100% {
+                opacity: 0;
+                bottom: 5%;
+                top: 85%;
+            }
+        }
+
         #AAPL,
         #MSFT,
         #NVDA {
@@ -166,6 +202,17 @@
             color: rgb(241, 243, 244);
             font-size: large;
             width: 100%;
+        }
+        input[type=password] {
+            border: 1px solid rgb(241, 243, 244);
+            border-radius: 4px;
+            background-color: transparent;
+            color: rgb(241, 243, 244);
+            font-size: large;
+            width: 100%;
+        }
+        ::-ms-reveal {
+            filter: invert(100%);
         }
 
         #symbol {
@@ -240,7 +287,68 @@
         #stats {
             width: 100%;
         }
+        #signin {
+            height: 50%;
+            width: 100%;
+            text-align: center;
+            vertical-align: middle;
+            font-weight: bold;
+            font-size: larger;
+        }
+        #signin:hover {
+            color: rgb(198, 219, 231);
+        }
+        #connection {
+            height: 50%;
+            width: 100%;
+            text-align: center;
+            vertical-align: middle;
+        }
 
+        #popupbox{
+            top: 15%;
+            bottom: 40%;
+            left: 35%;
+            right: 35%;
+            position: absolute;
+            box-shadow: 0 0 4px 4px rgba(111, 201, 242, 0.4), 0 0 8px 8px rgba(111, 201, 242, 0.36);
+            border-radius: 1.5%;
+            background: rgb(54, 54, 65); 
+            z-index: 9;
+            visibility: hidden; 
+        }
+        a {
+            color: inherit;
+            text-decoration: inherit;
+        }
+        #pop {
+            top:0%;
+            bottom:10%;
+            width:100%;
+            vertical-align: middle;
+        }
+        #x {
+            text-align: right;
+            padding-top: 5px;
+            padding-right: 10px;
+            font-weight: bold;
+            font-size: large;
+        }
+        #x:hover {
+            color:red;
+        }
+        #form1 {
+            padding: 10%;
+        }
+        #loginb {
+            width: 100%;
+            font-size: large;
+            background-color: #6fc9f2;
+            border-style: none;
+            border-radius: 4px;
+            font-weight: bold;
+            color: rgb(54, 54, 65);
+        }
     </style>
 
     <script type="text/javascript">
@@ -263,18 +371,39 @@
 <body>
     <div id="logo">
         <span>
-            <img src="CAP_Logo.png"></img>
+            <a href="https://www.columbia-alpha-partners.com/" target="_blank"><img src="CAP_Logo.png"></img></a>
         </span>
     </div>
     <div id="nav">
         <table id = "stats">
             <tr>
                 <th class="header">Balance: $1,000,000</th>
-                <th class="header">Available: </th>
-                <th class="header">Unrealized P/L: $50,000</th>
-                <th class="header">Volume: 80 trades/minute</th>
+                <th class="header">Available: $1,000,000</th>
+                <th class="header">Volume: $80/min </th>
             </tr>
         </table>
+    </div>
+    <div id="popupbox">
+        <div id="x"><a href="javascript:login('hide');">x</a></div>
+        <div id="form1">
+        <form id="loginform" onsubmit="return false;">
+            <div class="form-group">
+                <label>Username:</label>
+                <input id="username" name="username" type="text">
+            </div>
+            <div class="form-group">
+                <label>Password:</label>
+                <input id="password" name="password" type="password">
+            </div>
+            <div class="form-group">
+                <button type="submit" id="loginb" formmethod="post">Log In</button>
+            </div>
+        </form>
+        </div>
+    </div> 
+    <div id="login">
+        <div id="signin"><a href="javascript:login('show');" id="user">Sign In</a></div>
+        <div id="connection">Not Connected 🔴</div>
     </div>
     <div id="nw">
         <select id="chartsel" onchange="change_graph()">
@@ -396,6 +525,11 @@
     <script>
 
         var time = 31;
+        var username;
+        var password;
+        var balance = 1000000;
+        var available = 1000000;
+        var tradevol = 0;
 
         recentPrices = {
             'AAPL': [100, 101, 99, 103],
@@ -569,6 +703,14 @@
         Plotly.newPlot('METAc', [trace6], layout);
         Plotly.newPlot('AMZNc', [trace5], layout);
         Plotly.newPlot('GOOGc', [trace4], layout);
+        
+        function login(showhide) {
+            if(showhide == "show") {
+                document.getElementById('popupbox').style.visibility="visible";
+            } else if(showhide == "hide") {
+                document.getElementById('popupbox').style.visibility="hidden"; 
+            }
+        }
 
         function addOrder(name, vol, price, type) {
             const itemList = document.getElementById('ActiveOrders');
@@ -585,7 +727,7 @@
             Vol.className = 'order';
 
             const Price = document.createElement('td');
-            Price.textContent = price;
+            Price.textContent = "$" + price;
             Price.className = 'order';
 
             const Type = document.createElement('td');
@@ -600,8 +742,9 @@
             removeButton.textContent = 'Cancel';
             removeButton.onclick = function (i) {
                 item.remove();
-                console.log("Cancel order message")
+                console.log("Cancel order message");
             };
+
 
             item.appendChild(Asset);
             item.appendChild(Vol);
@@ -612,6 +755,10 @@
 
             itemList.appendChild(item);
 
+        }
+
+        function errorEnd(event) {
+            event.srcElement.remove()
         }
 
         function addPosition(name, vol, price) {
@@ -629,11 +776,11 @@
             Vol.className = 'order';
 
             const Price = document.createElement('td');
-            Price.textContent = price;
+            Price.textContent = "$" + price;
             Price.className = 'order';
 
             const Total = document.createElement('td');
-            Total.textContent = price * vol;
+            Total.textContent = "$" + (parseInt(price) * parseInt(vol));
             Total.className = 'order';
 
             const ButtonWrapper = document.createElement('td');
@@ -659,9 +806,9 @@
 
 
         const sampleItems = [
-            { name: 'AAPL', vol: '500', price: '$100', type: 'BUY', id: "xyz" },
-            { name: 'AAPL', vol: '600', price: '$150', type: 'SELL'},
-            { name: 'JNJ', vol: '200', price: '$20', type: 'BUY' },
+            { name: 'AAPL', vol: '500', price: '100', type: 'BUY', id: "xyz" },
+            { name: 'AAPL', vol: '600', price: '150', type: 'SELL'},
+            { name: 'JNJ', vol: '200', price: '20', type: 'BUY' },
         ];
 
         sampleItems.forEach(item => addOrder(item.name, item.vol, item.price, item.type));
@@ -684,9 +831,21 @@
         
         const placeorderform = document.getElementById("placeorderform");
         placeorderform.addEventListener("submit", submitOrder);
+
+        const loginform = document.getElementById("loginform");
+        loginform.addEventListener("submit", logIn);
         
         
         ws = new WebSocket("ws://127.16.123.1:4000/orders/ws")
+
+        function logIn(event) {
+            const data = new FormData(loginform);
+            username = str(data.get("username"));
+            password = Array.from(str((data.get("password"))));
+            login('hide');
+            document.getElementById("user").textContent = data.get("username");
+            event.preventDefault;
+        }
 
         function submitOrder(event) {
             const data = new FormData(placeorderform);
@@ -697,10 +856,10 @@
             const message = {
                     MessageType: "OrderRequest",
                     Price: int(data.get("price")),
-                    TraderId: "Columbia_A",
+                    TraderId: username,
                     OrderType: data.get("type"),
                     Amount: int(data.get("amount")),
-                    Password: ["c", "u", "_", "a"],
+                    Password: password,
                     Symbol: data.get("symbol"),
                 }
             console.log(message);
@@ -864,6 +1023,7 @@
             const packet = JSON.parse(data);
             msg_type = packet['MessageType'];
             if (start_up_message) {
+                document.getElementById("connection").textContent = "Connected 🟢";
                 data = evt.data;
                 start_up_message = false
                 // this is the orderbook dump
@@ -913,7 +1073,11 @@
             } else if (msg_type == "lim_level_update") {
 
             } else if (msg_type == "error") {
-                
+                error = document.createElement('div');
+                error.className = 'error';
+                error.textContent = "Error Message";
+                document.body.appendChild(error);
+                error.addEventListener("animationend", errorEnd);
             }
         };
 
@@ -930,6 +1094,7 @@
         ws.onclose = function () {
             // websocket is closed.
             console.log("WS Conn closed :(")
+            document.getElementById("connection").textContent = "Not Connected 🔴";
         };
 
         
