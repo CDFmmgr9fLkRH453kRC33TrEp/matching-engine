@@ -362,6 +362,18 @@
             background: rgb(44, 44, 56);
             color: inherit;
         }
+
+        #overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background: #000;
+            opacity: 0.5;
+            z-index: 5;
+            visibility:hidden;
+        }
     </style>
 
     <script type="text/javascript">
@@ -382,6 +394,7 @@
 </head>
 
 <body>
+    <div id="overlay"></div>
     <div id="logo">
         <span>
             <a href="https://www.columbia-alpha-partners.com/" target="_blank"><img src="CAP_Logo.png"></img></a>
@@ -721,8 +734,10 @@
         function login(showhide) {
             if(showhide == "show") {
                 document.getElementById('popupbox').style.visibility="visible";
+                document.getElementById('overlay').style.visibility="visible";
             } else if(showhide == "hide") {
-                document.getElementById('popupbox').style.visibility="hidden"; 
+                document.getElementById('popupbox').style.visibility="hidden";
+                document.getElementById('overlay').style.visibility="hidden"; 
             }
         }
 
