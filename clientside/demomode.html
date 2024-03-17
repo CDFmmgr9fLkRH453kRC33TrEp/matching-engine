@@ -1,0 +1,1206 @@
+<html>
+
+<head>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@200&display=swap"
+        rel="stylesheet">
+    <style>
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+            font-family: 'IBM Plex Sans Condensed';
+            color: rgb(241, 243, 244);
+            background-color: rgb(16, 16, 20)
+        }
+
+        #logo {
+            background: rgb(27, 27, 34);
+            top: 0.2%;
+            left: 0.2%;
+            right: 80.2%;
+            bottom: 90.6%;
+            position: absolute;
+            padding: 1em;
+        }
+
+        #nav {
+            background: rgb(27, 27, 34);
+            top: 0.2%;
+            left: 20.2%;
+            right: 20.2%;
+            bottom: 90.6%;
+            position: absolute;
+            padding: 1em;
+        }
+
+        #login {
+            background: rgb(27, 27, 34);
+            top: 0.2%;
+            left: 80.2%;
+            right: 0.2%;
+            bottom: 90.6%;
+            position: absolute;
+            padding: 1em;
+
+        }
+
+        #nw {
+            background: rgb(27, 27, 34);
+            top: 10.2%;
+            left: 0.2%;
+            right: 47.7%;
+            bottom: 45.4%;
+            position: absolute;
+            padding: 1em;
+            
+        }
+
+        #mid {
+            background: rgb(27, 27, 34);
+            top: 10.2%;
+            left: 52.7%;
+            right: 32.7%;
+            bottom: 45.4%;
+            position: absolute;
+            padding: 1em;
+            
+        }
+
+        #ne {
+            background: rgb(27, 27, 34);
+            top: 10.2%;
+            left: 67.7%;
+            right: 0.2%;
+            bottom: 45.4%;
+            position: absolute;
+            padding: 1em;
+            
+        }
+
+        #sw {
+            background: rgb(27, 27, 34);
+            top: 55.4%;
+            left: 0.2%;
+            right: 82.2%;
+            bottom: 0.2%;
+            position: absolute;
+            padding: 1em;
+
+            font-size: 20px;            
+        }
+
+        #sm {
+            background: rgb(27, 27, 34);
+            top: 55.4%;
+            left: 18.2%;
+            right: 47.7%;
+            bottom: 0.2%;
+            position: absolute;
+            padding: 1em;
+            
+        }
+
+        #se {
+            background: rgb(27, 27, 34);
+            top: 55.4%;
+            left: 52.7%;
+            right: 0.2%;
+            bottom: 0.2%;
+            position: absolute;
+            padding: 1em;
+            
+        }
+
+        .error {
+            position: absolute;
+            z-index: 10;
+            bottom: 10%;
+            top: 80%;
+            left: 40%;
+            right: 40%;
+            background-color: red;
+            pointer-events: none;
+            animation: fade 2s;
+        }
+
+        @keyframes fade {
+            0% {
+                opacity: 1;
+                bottom: 10%;
+                top: 80%;
+            }
+            100% {
+                opacity: 0;
+                bottom: 5%;
+                top: 85%;
+            }
+        }
+
+        #AAPL,
+        #MSFT,
+        #NVDA {
+            width: 100%;
+            position: absolute;
+        }
+
+        .form-group {
+            position: relative;
+            margin: 20px 0;
+            box-sizing: border-box;
+            border: none
+        }
+
+        input {
+            font-family: inherit;
+        }
+
+
+        .header {
+            font-size: 28px;
+            vertical-align: top;
+        }
+
+        button {
+            font-family: inherit;
+        }
+
+        span {
+            padding-bottom: 50vh;
+        }
+
+        label {
+            font-size: medium;
+            font-weight: bold;
+            margin-right: 10%;
+        }
+
+        select {
+            font-family: inherit;
+        }
+
+        input[type=text] {
+            border: 1px solid rgb(241, 243, 244);
+            border-radius: 4px;
+            background-color: transparent;
+            color: rgb(241, 243, 244);
+            font-size: large;
+            width: 100%;
+        }
+        input[type=password] {
+            border: 1px solid rgb(241, 243, 244);
+            border-radius: 4px;
+            background-color: transparent;
+            color: rgb(241, 243, 244);
+            font-size: large;
+            width: 100%;
+        }
+        ::-ms-reveal {
+            filter: invert(100%);
+        }
+
+        #symbol {
+            width: 100%;
+            font-size: large;
+        }
+
+        #submit {
+            width: 100%;
+            font-size: large;
+            background-color: #6fc9f2;
+            border-style: none;
+            border-radius: 4px;
+            font-weight: bold;
+            color: rgb(54, 54, 65);
+        }
+
+        #ActivePositions,
+        #ActiveOrders {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        #Tickers {
+            width: 100%;
+            height: 100%;
+            font-size: x-large;
+            font-weight: bolder;
+            border-collapse: collapse;
+        }
+        .price {
+            text-align: right;
+        }
+
+        .orderRow:nth-child(even) {
+            background-color: rgb(44, 44, 56);
+        }
+        .orderRow {
+            text-align: center;
+            align-items:center;
+            justify-content:center;
+        }
+
+        .pctup {
+            color: transparent;  
+            text-shadow: 0 0 0 green;
+            text-align: left;
+            font-size: small;
+        }
+        .pctdwn {
+            text-align: left;
+            color: red;
+            font-size: small;
+        }
+
+        .remove-button {
+            background: transparent;
+            border: none;
+            font-weight: bold;
+            color: inherit;
+            border-radius: 5%;
+        }
+        .remove-button:hover {
+            background: red;
+        }
+
+        .order {
+
+        }
+
+        .hide {
+            display: none !important
+        }
+
+        img {
+            max-width: 100%;
+            vertical-align: middle;
+            object-fit: contain;
+        }
+
+        .subhead {
+            padding-bottom: 1vh;
+            font-size: medium;
+            font-weight: bold;
+            color: rgb(81, 81, 94);
+        }
+
+        #stats {
+            width: 100%;
+        }
+        #signin {
+            height: 50%;
+            width: 100%;
+            text-align: center;
+            vertical-align: middle;
+            font-weight: bold;
+            font-size: larger;
+        }
+        #signin:hover {
+            color: rgb(198, 219, 231);
+        }
+        #connection {
+            height: 50%;
+            width: 100%;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        #popupbox{
+            top: 15%;
+            bottom: 40%;
+            left: 35%;
+            right: 35%;
+            position: absolute;
+            background: rgb(27, 27, 34); 
+            z-index: 9;
+            visibility: hidden;
+            border-radius: 2%;
+            animation: pulse 10s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 0 0px 0px rgba(111, 201, 242, 0.4), 0 0 0px 0px rgba(111, 201, 242, 0.36);
+            }
+            50% {
+                box-shadow: 0 0 8px 8px rgba(211, 111, 242, 0.4), 0 0 12px 12px rgba(211, 111, 242, 0.36);
+            }
+        }
+        a {
+            color: inherit;
+            text-decoration: inherit;
+        }
+        #pop {
+            top:0%;
+            bottom:10%;
+            width:100%;
+            vertical-align: middle;
+        }
+        #x {
+            text-align: right;
+            padding-top: 5px;
+            padding-right: 10px;
+            font-weight: bold;
+            font-size: large;
+        }
+        #x:hover {
+            color:red;
+        }
+        #form1 {
+            padding: 10%;
+        }
+        #loginb {
+            width: 100%;
+            font-size: large;
+            background-color: #6fc9f2;
+            border-style: none;
+            border-radius: 4px;
+            font-weight: bold;
+            color: rgb(54, 54, 65);
+        }
+
+        select {
+            background: rgb(44, 44, 56);
+            color: inherit;
+        }
+
+        #overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background: #000;
+            opacity: 0.5;
+            z-index: 5;
+            visibility:hidden;
+        }
+    </style>
+
+    <script type="text/javascript">
+
+        function stopRKey(evt) {
+            var evt = (evt) ? evt : ((event) ? event : null);
+            var node = (evt.target) ? evt.target : ((evt.srcElement) ? evt.srcElement : null);
+            if ((evt.keyCode == 13) && (node.type == "text")) { return false; }
+        }
+
+        document.onkeypress = stopRKey;
+
+    </script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js"></script>
+    <script src="p5.js"></script>
+    <script src=https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js></script>
+</head>
+
+<body>
+    <div id="overlay"></div>
+    <div id="logo">
+        <span>
+            <a href="https://www.columbia-alpha-partners.com/" target="_blank"><img src="CAP_Logo.png"></img></a>
+        </span>
+    </div>
+    <div id="nav">
+        <table id = "stats">
+            <tr>
+                <th class="header" id="balance">Balance: $1,000,000.00</th>
+                <th class="header" id="available">Available: $1,000,000.00</th>
+                <th class="header" id="volume">Volume: $0.00/min </th>
+            </tr>
+        </table>
+    </div>
+    <div id="popupbox">
+        <div id="x"><a href="javascript:login('hide');">x</a></div>
+        <div id="form1">
+        <form id="loginform" onsubmit="return false;">
+            <div class="form-group">
+                <label>Username:</label>
+                <input id="username" name="username" type="text">
+            </div>
+            <div class="form-group">
+                <label>Password:</label>
+                <input id="password" name="password" type="password">
+            </div>
+            <div class="form-group">
+                <button type="submit" id="loginb" formmethod="post">Log In</button>
+            </div>
+        </form>
+        </div>
+    </div> 
+    <div id="login">
+        <div id="signin"><a href="javascript:login('show');" id="user">Sign In</a></div>
+        <div id="connection">Not Connected 🔴</div>
+    </div>
+    <div id="nw">
+        <select id="chartsel" onchange="change_graph()">
+            <option value="AAPLc">AAPL</option>
+            <option value="MSFTc">MSFT</option>
+            <option value="NVDAc">NVDA</option>
+            <option value="GOOGc">GOOG</option>
+            <option value="METAc">META</option>
+            <option value="AMZNc">AMZN</option>
+        </select>
+            <div class="chart" id="AAPLc"></div>
+            <div class="chart hide" id="MSFTc"></div>
+            <div class="chart hide" id="NVDAc"></div>
+            <div class="chart hide" id="GOOGc"></div>
+            <div class="chart hide" id="METAc"></div>
+            <div class="chart hide" id="AMZNc"></div>
+    </div>
+    <div id="mid">
+        <table id="Tickers" border=1 bordercolor= #6fc9f2 frame=hsides rules=rows>
+            <tr>
+                <td>MSFT</td>
+                <td class="price" id="MSFTt">100.00</td>
+                <td class="pctup" id="MSFTp">🔺5%</td>
+            </tr>
+            <tr>
+                <td>AAPL</td>
+                <td class="price" id="AAPLt">100.00</td>
+                <td class="pctdwn" id="AAPLp">🔻2%</td>
+            </tr>
+            <tr>
+                <td>GOOG</td>
+                <td class="price" id="GOOGt">100.00</td>
+                <td class="pctup" id="GOOGp">🔺2%</td>
+            </tr>
+            <tr>
+                <td>AMZN</td>
+                <td class="price" id="AMZNt">100.00</td>
+                <td class="pctup" id="AMZNp">🔺6%</td>
+            </tr>
+            <tr>
+                <td>NVDA</td>
+                <td class="price" id="NVDAt">100.00</td>
+                <td class="pctdwn" id="NVDAp">🔻20%</td>
+            </tr>
+            <tr>
+                <td>META</td>
+                <td class="price" id="METAt">100.00</td>
+                <td class="pctdwn" id="METAp">🔻5%</td>
+            </tr>
+        </table>
+    </div>
+    <div id="ne">
+        <div class = "subhead">Active Positions</div>
+        <table id="ActivePositions">
+            <tr>
+                <th>Symbol</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Total</th>
+            </tr>
+        </table>
+    </div>
+    <div id="sm">
+        <div class = "subhead">Active Orders</div>
+        <table id='ActiveOrders'>
+            <tr>
+                <th>Symbol</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Type</th>
+            </tr>
+        </table>
+    </div>
+    <div id="sw">
+        <div class="subhead">Order Form</div>
+        <form id="placeorderform">
+            <div class="form-group">
+                <label>Symbol</label>
+                <div>
+                    <select id="symbol" name="symbol" class="form-control">
+                        <option value="AAPL">AAPL</option>
+                        <option value="JNJ">JNJ</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Type</label>
+                <div>
+                <label>
+                    <input type="radio" name="type" id="type-0" value="Buy" checked="checked">
+                    Buy
+                </label>
+                <label>
+                    <input type="radio" name="type" id="type-1" value="Sell">
+                    Sell
+                </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Price</label>
+                <input id="price" name="price" type="text" placeholder="200">
+            </div>
+
+            <div class="form-group">
+                <label>Quantity</label>
+                <input id="amount" name="amount" type="text" placeholder="500">
+            </div>
+
+            <div class="form-group">
+                <input formmethod=post type="submit" id="submit" name="submit">
+            </div>
+
+        </form>
+    </div>
+    <div id="se" style="overflow:auto;"></div>
+
+    <script>
+
+        var time = 1;
+        var username;
+        var password;
+        var balance = 1000000.00;
+        var available = 1000000.00;
+        var tradevol = 0.00;
+
+        recentPrices = {
+            'AAPL': [100, 101, 99, 103],
+            'MSFT': [100, 101, 99, 103],
+            'NVDA': [100, 101, 99, 103],
+            'GOOG': [100, 101, 99, 103],
+            'AMZN': [100, 101, 99, 103],
+            'META': [100, 101, 99, 103]
+        }
+        
+        tickers = {'AAPLt': 100, 'MSFTt': 100, 'NVDAt': 100, 'GOOGt': 100, 'AMZNt': 100, 'METAt': 100};
+
+        var layout = {
+        paper_bgcolor: "rgba(0,0,0,0)",
+        plot_bgcolor: "rgba(0,0,0,0)",
+        dragmode: 'zoom', 
+        margin: {
+            r: 30, 
+            t: 0, 
+            b: 90, 
+            l: 0
+        }, 
+        showlegend: false, 
+        xaxis: {
+            rangeslider: {visible: false},
+            gridcolor: 'rgb(81, 81, 94)', 
+            type: 'linear'
+        }, 
+        yaxis: {
+            autorange: true, 
+            type: 'linear',
+            gridcolor: 'rgb(81, 81, 94)'
+        }
+        };
+
+        var trace1 = {
+        
+        x: [], 
+        
+        close: [], 
+        
+        decreasing: {line: {color: '#7F7F7F'}}, 
+        
+        high: [], 
+        
+        increasing: {line: {color: '#17BECF'}}, 
+        
+        line: {color: 'rgba(31,119,180,1)'}, 
+        
+        low: [], 
+        
+        open: [], 
+        
+        type: 'candlestick', 
+        xaxis: 'x', 
+        yaxis: 'y'
+        };
+        var trace2 = {
+        
+        x: [], 
+        
+        close: [], 
+        
+        decreasing: {line: {color: '#7F7F7F'}}, 
+        
+        high: [], 
+        
+        increasing: {line: {color: '#17BECF'}}, 
+        
+        line: {color: 'rgba(31,119,180,1)'}, 
+        
+        low: [], 
+        
+        open: [], 
+        
+        type: 'candlestick', 
+        xaxis: 'x', 
+        yaxis: 'y'
+        };
+        var trace3 = {
+        
+        x: [], 
+        
+        close: [], 
+        
+        decreasing: {line: {color: '#7F7F7F'}}, 
+        
+        high: [], 
+        
+        increasing: {line: {color: '#17BECF'}}, 
+        
+        line: {color: 'rgba(31,119,180,1)'}, 
+        
+        low: [], 
+        
+        open: [], 
+        
+        type: 'candlestick', 
+        xaxis: 'x', 
+        yaxis: 'y'
+        };     
+        var trace4 = {
+        
+        x: [], 
+        
+        close: [], 
+        
+        decreasing: {line: {color: '#7F7F7F'}}, 
+        
+        high: [], 
+        
+        increasing: {line: {color: '#17BECF'}}, 
+        
+        line: {color: 'rgba(31,119,180,1)'}, 
+        
+        low: [], 
+        
+        open: [], 
+        
+        type: 'candlestick', 
+        xaxis: 'x', 
+        yaxis: 'y'
+        };
+        var trace5 = {
+        
+        x: [], 
+        
+        close: [], 
+        
+        decreasing: {line: {color: '#7F7F7F'}}, 
+        
+        high: [], 
+        
+        increasing: {line: {color: '#17BECF'}}, 
+        
+        line: {color: 'rgba(31,119,180,1)'}, 
+        
+        low: [], 
+        
+        open: [], 
+        
+        type: 'candlestick', 
+        xaxis: 'x', 
+        yaxis: 'y'
+        };
+        var trace6 = {
+        
+        x: [], 
+        
+        close: [], 
+        
+        decreasing: {line: {color: '#7F7F7F'}}, 
+        
+        high: [], 
+        
+        increasing: {line: {color: '#17BECF'}}, 
+        
+        line: {color: 'rgba(31,119,180,1)'}, 
+        
+        low: [], 
+        
+        open: [], 
+        
+        type: 'candlestick', 
+        xaxis: 'x', 
+        yaxis: 'y'
+        };
+
+        Plotly.newPlot('AAPLc', [trace1], layout);
+        Plotly.newPlot('MSFTc', [trace2], layout);
+        Plotly.newPlot('NVDAc', [trace3], layout);
+        Plotly.newPlot('METAc', [trace6], layout);
+        Plotly.newPlot('AMZNc', [trace5], layout);
+        Plotly.newPlot('GOOGc', [trace4], layout);
+        
+        function login(showhide) {
+            if(showhide == "show") {
+                document.getElementById('popupbox').style.visibility="visible";
+                document.getElementById('overlay').style.visibility="visible";
+            } else if(showhide == "hide") {
+                document.getElementById('popupbox').style.visibility="hidden";
+                document.getElementById('overlay').style.visibility="hidden"; 
+            }
+        }
+
+        function addOrder(name, vol, price, type) {
+            const itemList = document.getElementById('ActiveOrders');
+            
+            const item = document.createElement('tr');
+            item.className = 'orderRow';
+
+            const Asset = document.createElement('td');
+            Asset.textContent = name;
+            Asset.className = 'symbol';
+
+            const Vol = document.createElement('td');
+            Vol.textContent = vol;
+            Vol.className = 'vol';
+
+            const Price = document.createElement('td');
+            Price.textContent = "$" + price;
+            Price.className = 'price';
+
+            const Type = document.createElement('td');
+            Type.textContent = type;
+            Type.className = 'type';
+
+            const ButtonWrapper = document.createElement('td');
+            ButtonWrapper.className = 'order';
+            const removeButton = document.createElement('button');
+            removeButton.className = 'remove-button';
+
+            removeButton.textContent = 'Cancel';
+            removeButton.onclick = function (i) {
+                available += price * vol;
+                updatenav();
+                item.remove();
+            };
+
+
+            item.appendChild(Asset);
+            item.appendChild(Vol);
+            item.appendChild(Price);
+            item.appendChild(Type);
+            ButtonWrapper.appendChild(removeButton);
+            item.appendChild(ButtonWrapper);
+            available -= price * vol;
+            updatenav();
+            itemList.appendChild(item);
+
+        }
+
+        function errorEnd(event) {
+            event.srcElement.remove()
+        }
+
+        function addPosition(name, vol, price) {
+            const itemList = document.getElementById('ActivePositions');
+
+            const item = document.createElement('tr');
+            item.className = 'orderRow';
+
+            const Asset = document.createElement('td');
+            Asset.textContent = name;
+            Asset.className = 'order';
+
+            const Vol = document.createElement('td');
+            Vol.textContent = vol;
+            Vol.className = 'order';
+
+            const Price = document.createElement('td');
+            Price.textContent = "$" + price;
+            Price.className = 'order';
+
+            const Total = document.createElement('td');
+            Total.textContent = "$" + (parseInt(price) * parseInt(vol));
+            Total.className = 'order';
+
+            const ButtonWrapper = document.createElement('td');
+            ButtonWrapper.className = 'order';
+            const removeButton = document.createElement('button');
+            removeButton.className = 'remove-button';
+
+            removeButton.textContent = 'Sell';
+            removeButton.onclick = function (i) {
+                tickerID = name + 't';
+                sale = parseFloat(tickers[tickerID]);
+                tot = parseFloat((sale * vol).toFixed(2));
+                balance += tot;
+                available += tot;
+                tradevol += tot;
+                updatenav();
+                item.remove();
+            };
+
+            item.appendChild(Asset);
+            item.appendChild(Vol);
+            item.appendChild(Price);
+            item.appendChild(Total);
+            ButtonWrapper.appendChild(removeButton);
+            item.appendChild(ButtonWrapper);
+
+            itemList.appendChild(item);
+        }
+
+        function ordertopos() {
+            const temp = document.getElementById("ActiveOrders");
+            const orderlist = temp.getElementsByClassName("orderRow");
+            for (i of orderlist) {
+                var volume = i.getElementsByClassName("vol")[0].textContent;
+                var myprice = i.getElementsByClassName("price")[0].textContent;
+                myprice = myprice.substring(1)
+                var symbol = i.getElementsByClassName("symbol")[0].textContent;
+                var type = i.getElementsByClassName("type")[0].textContent;
+                var tickerID = symbol + 't';
+                var curprice = parseFloat(tickers[tickerID]);
+                console.log(myprice);
+                console.log(curprice);
+                if ((myprice > curprice) && (type == "Buy")) {
+                    addPosition(symbol, volume, curprice);
+                    balance -= parseFloat((myprice * parseInt(volume)).toFixed(2));
+                    updatenav();
+                    i.remove()
+                }
+            }
+        }
+
+        function updatenav() {
+            const baldisplay = document.getElementById("balance");
+            const availdisplay = document.getElementById("available");
+            const voldisplay = document.getElementById("volume");
+            baldisplay.textContent = "Balance: $" + numberWithCommas(balance.toFixed(2));
+            availdisplay.textContent = "Available: $" + numberWithCommas(available.toFixed(2));
+            vpm = parseFloat((tradevol / (time / 6.0)).toFixed(2));
+            voldisplay.textContent = "Volume: $" + numberWithCommas(vpm.toFixed(2)) + "/min";
+        }
+
+        function numberWithCommas(x) {
+            return x.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        const charts = document.querySelectorAll(".chart");
+        function change_graph() {
+            charts.forEach(chart => {
+                chart.className = "chart hide";
+            })
+            show = document.getElementById(chartsel.value);
+            show.className = "chart";
+            Plotly.newPlot('AAPLc', [trace1], layout);
+            Plotly.newPlot('MSFTc', [trace2], layout);
+            Plotly.newPlot('NVDAc', [trace3], layout);
+            Plotly.newPlot('METAc', [trace6], layout);
+            Plotly.newPlot('AMZNc', [trace5], layout);
+            Plotly.newPlot('GOOGc', [trace4], layout);
+        }
+        
+        const placeorderform = document.getElementById("placeorderform");
+        placeorderform.addEventListener("submit", submitOrder);
+
+        const loginform = document.getElementById("loginform");
+        loginform.addEventListener("submit", logIn);
+        
+        
+        //ws = new WebSocket("ws://127.16.123.1:4000/orders/ws")
+
+        function logIn(event) {
+            const data = new FormData(loginform);
+            username = str(data.get("username"));
+            password = Array.from(str((data.get("password"))));
+            login('hide');
+            document.getElementById("user").textContent = data.get("username");
+            event.preventDefault;
+        }
+
+        function submitOrder(event) {
+            const data = new FormData(placeorderform);
+            addOrder(data.get("symbol"), int(data.get("amount")), int(data.get("price")), data.get("type"))
+            event.preventDefault();
+        }
+
+
+
+        // todo: maintain pointer to cross
+        // format: index is price, number is total amount at price level.
+        // gonna change this so just top 10 are shown. Change price labels
+        high_buy = 10
+        low_sell = 0
+        orderbooks = {
+            "AAPL": {
+                "scale_factor": 1,
+                "depth_chart_buy": [21, 12, 17, 0, 18, 0, 0, 0, 0, 0],
+                "depth_chart_sell": [0, 0, 0, 0, 0, 13, 41, 0, 34, 22]
+            },
+            "JNJ": {
+                "scale_factor": 1,
+                "depth_chart_buy": [],
+                "depth_chart_sell": []
+            }
+        }
+
+        canWidth = 0.95 * document.getElementById('se').clientWidth;
+        canHeight = document.getElementById('se').clientHeight;
+        x_axis_offset = canHeight - 40;
+        scale_factor = 10;
+
+        function setup() {
+            textAlign(LEFT, TOP);
+            font = 'IBM Plex Sans Condensed';
+            textFont(font);
+            canvas = createCanvas(canWidth, canHeight);
+            canvas.parent('se');
+            textSize(20);
+            frameRate(60);
+            sel = createSelect();
+            sel.parent('se')
+            sel.position(canWidth - 80, 20);
+            for (var key in orderbooks) {
+                if (orderbooks.hasOwnProperty(key)) {
+                    sel.option(key);
+                }
+            }
+            sel.changed(select_evt);
+            // select_evt()
+            setInterval("newCandle()", 10000)
+            setInterval("any_fill_evt()", 2500)
+            setInterval("ordertopos()", 2500)
+            setInterval("dummyorderbooksender()", 3000)
+            update_viz('AAPL')
+        }
+
+        function update_viz(symbol) {
+            textAlign(CENTER, BOTTOM);
+            background(27, 27, 34);
+            textSize(10);
+            textFont(font);
+            buy_pointer = high_buy - 1;
+            col_width = canWidth / orderbooks[symbol]["depth_chart_buy"].length
+            running_buy_interest = 0;
+            fill('rgb(0, 255, 0)');
+            while (buy_pointer >= 0) {
+                fill('rgb(0, 255, 0)');
+                running_buy_interest += orderbooks[symbol]["depth_chart_buy"][buy_pointer]
+                rect(buy_pointer * col_width, x_axis_offset - running_buy_interest * orderbooks[symbol]["scale_factor"], col_width, running_buy_interest * orderbooks[symbol]["scale_factor"])
+                fill('rgb(241, 243, 244)');
+                text(buy_pointer, buy_pointer * col_width + col_width / 2, x_axis_offset + 15)
+                if (running_buy_interest > 0) {
+                    fill('rgb(241, 243, 244)');
+                    text(running_buy_interest, buy_pointer * col_width + col_width / 2, x_axis_offset - running_buy_interest * orderbooks[symbol]["scale_factor"])
+                    fill('rgb(0, 255, 0)');
+                }
+                console.log(buy_pointer * col_width, x_axis_offset, col_width, running_buy_interest * 10);
+                buy_pointer -= 1;
+            }
+
+            running_sell_interest = 0;
+            sell_pointer = low_sell;
+            fill('rgb(255, 0, 0)');
+            while (sell_pointer < orderbooks[symbol]["depth_chart_sell"].length) {
+                running_sell_interest += orderbooks[symbol]["depth_chart_sell"][sell_pointer]
+                rect(sell_pointer * col_width, x_axis_offset - running_sell_interest * orderbooks[symbol]["scale_factor"], col_width, running_sell_interest * orderbooks[symbol]["scale_factor"])
+                if (running_sell_interest > 0) {
+                    fill('rgb(241, 243, 244)');
+                    text(running_sell_interest, sell_pointer * col_width + col_width / 2, x_axis_offset - running_sell_interest * orderbooks[symbol]["scale_factor"])
+                    fill('rgb(255, 0, 0)');
+                }
+                // console.log(sell_pointer * col_width, x_axis_offset, col_width, running_buy_interest*10);
+                sell_pointer += 1;
+            }
+
+            orderbooks[symbol]["scale_factor"] = (canHeight / 2) / math.max(running_buy_interest, running_sell_interest)
+            // console.log(running_buy_interest, running_sell_interest)
+            // console.log(math.max(running_buy_interest, running_sell_interest))
+            // console.log(scale_factor)
+
+            textAlign(LEFT, TOP);
+            fill('rgb(241, 243, 244)');
+            textSize(20);
+            text(symbol, 10, 10)
+            textSize(15);
+            text("Total Resting Buy Volume: " + running_buy_interest, 10, 30)
+            text("Total Resting Sell Volume: " + running_sell_interest, 10, 45)
+        }
+
+        function select_evt() {
+            update_viz(sel.value())
+            update_viz(sel.value())
+        }
+
+        function any_fill_evt() {
+            randsym = ['AAPL','MSFT','NVDA','GOOG','AMZN','META']
+            symbol = randsym[Math.floor(Math.random() * 6)];
+            tickerID = symbol + 't';
+            curprice = parseFloat(tickers[tickerID])
+            price = curprice + curprice*Math.random()*0.2 - curprice*Math.random()*0.2;
+            pctID = symbol + 'p';
+            change = 100.00 * (price - tickers[tickerID]) / tickers[tickerID];
+            pctele = document.getElementById(pctID);
+            tickele = document.getElementById(tickerID);
+            if (change < 0) {
+                change *= -1;
+                change = '🔻' + change.toFixed(2) + '%';
+                pctele.className = 'pctdwn';
+                pctele.textContent = change;
+            } else {
+                change = '🔺' + change.toFixed(2) + '%';
+                pctele.className = 'pctup'
+                pctele.textContent = change;
+            }
+            tickele.textContent = price.toFixed(2);
+            tickers[tickerID] = price.toFixed(2);
+            recentPrices[symbol].push(price.toFixed(2));
+
+        }
+        function newCandle() {
+            for([key, value] of Object.entries(recentPrices)) {
+                o = value[0];
+                c = value[value.length - 1];
+                h = math.max(value);
+                l = math.min(value);
+                recentPrices[key] = [c];
+                var gd = document.getElementById(key + 'c');
+                gd.data[0].open.push(o);
+                gd.data[0].close.push(c);
+                gd.data[0].high.push(h);
+                gd.data[0].low.push(l);
+                gd.data[0].x.push(time.toString());
+            }
+            Plotly.newPlot('AAPLc', [trace1], layout);
+            Plotly.newPlot('MSFTc', [trace2], layout);
+            Plotly.newPlot('NVDAc', [trace3], layout);
+            time ++;
+            const voldisplay = document.getElementById("volume");
+            vpm = (tradevol / (time / 6.0)).toFixed(2);
+            voldisplay.textContent = "Volume: $" + numberWithCommas(vpm) + "/min";
+        }
+/*
+        packet = {"level": int,
+        "side": "Buy" | "Sell",
+        "total_order_vol": int,
+        "symbol": string}
+*/
+        function dummyorderbooksender() {
+            if (Math.random > 0.5) {
+                packet = {
+                "level":Math.floor(Math.random() * 5),
+                "side": "Buy",
+                "total_order_vol": Math.floor(Math.random() * 20),
+                "symbol":"AAPL"
+                }
+            } else {
+                packet = {
+                "level":Math.floor(Math.random() * 5) + 5,
+                "side": "Sell",
+                "total_order_vol": Math.floor(Math.random() * 20),
+                "symbol":"AAPL"
+                }
+            }
+            dummyorderbook(packet);
+        }        
+
+        function dummyorderbook(packet) {
+
+            const level = parseInt(packet["level"])
+            const side = packet["side"]
+            const total_order_vol = parseInt(packet["total_order_vol"])
+            const symbol = packet["symbol"]
+
+            if (packet["side"] == "Buy") {
+                console.log("updating buy side")
+                orderbooks[symbol]["depth_chart_buy"][level] = total_order_vol
+            } else if (packet["side"] == "Sell") {
+                console.log("updating sell side")
+                orderbooks[symbol]["depth_chart_sell"][level] = total_order_vol
+            }
+            if (sel.value() == symbol) {
+                update_viz(symbol);
+            }
+        }
+
+        start_up_message = true;
+        // receive a message from the server
+        ws.onmessage = function (evt) {
+            const packet = JSON.parse(data);
+            msg_type = packet['MessageType'];
+            if (start_up_message) {
+                document.getElementById("connection").textContent = "Connected 🟢";
+                data = evt.data;
+                start_up_message = false
+                // this is the orderbook dump
+                // console.log(packet)
+                for (var orderbook in packet) {
+                    // console.log(orderbook)
+                    if (orderbooks.hasOwnProperty(orderbook)) {
+                        packet[orderbook]["buy_side_limit_levels"].forEach((x, i) => {
+                            console.log(i, x);
+                            orderbooks[orderbook]["depth_chart_buy"][i] = parseInt(x["total_volume"])
+                        });
+                        packet[orderbook]["sell_side_limit_levels"].forEach((x, i) =>
+                            orderbooks[orderbook]["depth_chart_sell"][i] = parseInt(x["total_volume"])
+                        );
+                    }
+                }
+                update_viz(sel.value());
+            } else if (msg_type == "lim_level_update") {
+                data = evt.data;
+                // console.log("data", data);
+                console.log(typeof packet);
+                console.log("level", packet["level"]);
+                console.log("total_order_vol", packet["total_order_vol"]);
+                console.log("side", packet["side"]);
+
+                const level = parseInt(packet["level"])
+                const side = packet["side"]
+                const total_order_vol = parseInt(packet["total_order_vol"])
+                const symbol = packet["symbol"]
+
+                if (packet["side"] == "Buy") {
+                    console.log("updating buy side")
+                    orderbooks[symbol]["depth_chart_buy"][level] = total_order_vol
+                } else if (packet["side"] == "Sell") {
+                    console.log("updating sell side")
+                    orderbooks[symbol]["depth_chart_sell"][level] = total_order_vol
+                }
+                if (sel.value() == symbol) {
+                    update_viz(symbol);
+                }
+            } else if (msg_type == "anyfill") {
+                any_fill_evt(evt);
+            } else if (msg_type == 'order_id') {
+                //BUY -> add to active orders, decrease available
+                //SELL -> add to active orders, remove "sell" button/update vis
+            } else if (msg_type == "YourFillMessage") {
+                //BUY -> remove from orders, add to active positions, decrease balance, increase volume
+                //SELL -> remove from orders and active positions, increase balance and available
+            } else if (msg_type == "error") {
+                error = document.createElement('div');
+                error.className = 'error';
+                error.textContent = "Error Message";
+                document.body.appendChild(error);
+                error.addEventListener("animationend", errorEnd);
+            }
+        };
+
+        function windowResized() {
+                canWidth = 0.95 * document.getElementById('se').clientWidth;
+                canHeight = document.getElementById('se').clientHeight;
+                resizeCanvas(canWidth, canHeight);
+                update_viz("AAPL");
+                Plotly.newPlot('AAPLc', [trace1], layout);
+                Plotly.newPlot('MSFTc', [trace2], layout);
+                Plotly.newPlot('NVDAc', [trace3], layout);
+        }
+
+        ws.onclose = function () {
+            // websocket is closed.
+            console.log("WS Conn closed :(")
+            document.getElementById("connection").textContent = "Not Connected 🔴";
+        };
+        
+        setup();
+        update_viz("AAPL");
+
+    </script>
+</body>
+</html>
