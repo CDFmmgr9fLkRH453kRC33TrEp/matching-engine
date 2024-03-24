@@ -1,9 +1,3 @@
-// todo: separate websocket handling actors from actors handling state/fill message queueing?
-// i.e. actor handling state subscribes to fill messages, then checks if there is a websocket actor associated with the account and then sends fill message to them
-// actors handling state have static lifetime and are spawned when  program starts
-// actors handling websockets are spawned when new connection occurs, and end when connection is dropped.
-// otherwise will add to fill message backlog.
-
 use actix::prelude::*;
 use actix_web::web::Bytes;
 use actix_web::Error;
@@ -27,6 +21,7 @@ use actix_broker::{ArbiterBroker, Broker, BrokerIssue, BrokerSubscribe, SystemBr
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(4);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
+use crate::api_messages::{CancelRequest, OrderConfimMessage, OrderRequest};
 use crate::message_types::OpenMessage;
 use crate::orderbook::{Fill, TraderId};
 use crate::websockets::ws::CloseCode::Policy;
@@ -51,9 +46,7 @@ pub use crate::accounts::TraderAccount;
 pub use crate::accounts::quickstart_trader_account;
 use crate::config::TraderIp;
 pub use crate::orderbook::quickstart_order_book;
-pub use crate::orderbook::CancelRequest;
 pub use crate::orderbook::OrderBook;
-pub use crate::orderbook::OrderRequest;
 pub use crate::orderbook::OrderType;
 use crate::{config, orderbook};
 
@@ -74,7 +67,7 @@ enum IncomingMessage {
 }
 
 fn add_order(
-    order_request: crate::orderbook::OrderRequest,
+    order_request: OrderRequest,
     data: &web::Data<crate::config::GlobalOrderBookState>,
     accounts_data: &web::Data<crate::config::GlobalAccountState>,
     // start_time: &web::Data<SystemTime>,
@@ -177,7 +170,7 @@ fn add_order(
 }
 
 fn cancel_order(
-    cancel_request: crate::orderbook::CancelRequest,
+    cancel_request: CancelRequest,
     data: &web::Data<crate::config::GlobalOrderBookState>,
     relay_server_addr: &web::Data<Addr<crate::connection_server::Server>>,
     order_counter: &web::Data<Arc<AtomicUsize>>,
@@ -192,7 +185,9 @@ fn cancel_order(
     // todo: add proper error handling/messaging
     // instead of returning none, this should return Result and I can catch it here to propagate up actix framework
     match order_id {
-        Some(inner) => String::from(format!("Successfully cancelled order {:?}", inner.order_id)),
+        Some(inner) => serde_json::to_string(&OrderConfimMessage {
+            order_info: inner
+        }).unwrap(),
         None => String::from(
             "Issue processing cancellation request, the order may have been already executed.",
         ),
@@ -305,6 +300,8 @@ impl Actor for MyWebSocketActor {
 /// Define handler for `Fill` message
 impl Handler<Arc<orderbook::Fill>> for MyWebSocketActor {
     type Result = ();
+
+    // should implement api_messages.rs spec
 
     fn handle(&mut self, msg: Arc<orderbook::Fill>, ctx: &mut Self::Context) {
         let fill_event = msg;
@@ -539,22 +536,22 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
             // Ok(ws::Message::Text(text)) => ctx.text(text),
             // Close will close the socket
             Ok(ws::Message::Close(reason)) => {
-                // let account_id = crate::macro_calls::ip_to_id(connection_ip).unwrap();
-
-                //  self
-                // .global_account_state
-                // .index_ref(account_id)
-                // .lock()
-                // .unwrap()
-                // .current_actor = None;
+                let account_id = self.associated_id;
+                 self
+                .global_account_state
+                .index_ref(account_id)
+                .lock()
+                .unwrap()
+                .current_actor = None;
                 info!("Received close message, closing context.");
                 ctx.close(reason);
                 ctx.stop();
             }
             _ => {
                 error!("Error reading message, stopping context.");
+                // should send generic error message to client as well
                 ctx.stop();
-            } // }
+            }
         }
         let t_elp = t_start.elapsed().unwrap();
         debug!("secs for last request: {:?}", t_elp);

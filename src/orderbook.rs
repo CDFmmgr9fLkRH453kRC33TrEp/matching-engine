@@ -1,4 +1,5 @@
 use crate::accounts;
+use crate::api_messages::{OrderRequest, CancelRequest};
 use crate::connection_server;
 use crate::config;
 use crate::config::TickerSymbol;
@@ -99,17 +100,7 @@ struct LimitLevel {
     total_volume: usize,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, Copy)]
-#[serde(rename_all = "PascalCase")]
-pub struct OrderRequest {
-    /// Struct representing an incoming request which has not yet been added to the orderbook
-    pub amount: usize,
-    pub price: Price,
-    pub order_type: OrderType,
-    pub trader_id: TraderId,
-    pub symbol: config::TickerSymbol,
-    pub password: accounts::Password,
-}
+
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Order {
@@ -126,24 +117,6 @@ struct Trader {
     id: TraderId,
 }
 
-#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "PascalCase")]
-
-// Should we allow for partial order cancellations?
-pub struct CancelRequest {
-    pub order_id: OrderID,
-    pub trader_id: TraderId,
-    price: Price,
-    pub symbol: config::TickerSymbol,
-    side: OrderType,
-    pub password: accounts::Password,
-}
-
-#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
-enum ClientMessage {
-    OrderRequest(OrderRequest),
-    CancelRequest(CancelRequest),
-}
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
