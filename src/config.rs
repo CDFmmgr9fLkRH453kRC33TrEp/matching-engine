@@ -158,12 +158,14 @@ generate_global_state!([AAPL,JNJ], [
         Columbia_B,
         Columbia_C,
         Columbia_D,
-        Columbia_Viz
+        Columbia_Viz,
+        Price_Enforcer
     ]);
 generate_accounts_enum!([
         Columbia_A,
         Columbia_B,
         Columbia_C,
         Columbia_D,
-        Columbia_Viz
+        Columbia_Viz,
+        Price_Enforcer
     ]);

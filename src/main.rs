@@ -90,12 +90,14 @@ async fn main() -> std::io::Result<()> {
         JNJ: Mutex::new(quickstart_order_book(config::TickerSymbol::JNJ, 0, 11, 10000)), 
     });
 
+    // todo: abstract to config file, this is disgusting (see config.json -> build.rs -> config.rs)
     let global_account_state = web::Data::new(config::GlobalAccountState {        
         Columbia_A: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_A, 100000, ['c','u','_','a'])),
         Columbia_B: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_B, 100000,  ['c','u','_','b'])),
         Columbia_C: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_C, 100000,  ['c','u','_','c'])),
         Columbia_D: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_D, 100000,  ['c','u','_','d'])),
         Columbia_Viz: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Columbia_Viz, 100000,  ['c','u','_','v'])),
+        Price_Enforcer: Mutex::new(accounts::quickstart_trader_account(config::TraderId::Price_Enforcer, 100000,  ['p','e','n','f'])),
     });
 
     // todo: abstract to config file, this is disgusting (see config.json -> build.rs -> config.rs)

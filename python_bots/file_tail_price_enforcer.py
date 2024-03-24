@@ -3,18 +3,35 @@ import os
 import websockets
 from watchfiles import awatch
 import json
+import argparse
+import numpy as np
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('--symbol', type=str, required=True)
+parser.add_argument('--amt', type=str, required=True)
+
+args = parser.parse_args()
+
+max_price = 1000
+
+# todo: implement flat, normal, bimodal, delta, smile and see what is the most fun
+def generate_gaussian(min, max, mean, var):
+    out_arr =  np.arange(min + 1, max - 1)
+    norm_pdf = lambda index: 1/((2 * 3.1415 * var)**0.5) * np.exp(-0.5 *)
+    return 
 
 
 async def tail_file_and_send_message(file_path, websocket_uri):
     async def send_message(price):
-        print(price)
+        print("sending buy order at price")
         jsonreq = {
             'OrderType': "Buy",
-            'Amount': 1,
+            'Amount': args.symbol,
             'Price': price,
-            'Symbol': "AAPL",
-            'TraderId': "Columbia_A",
-            'Password': list("cu_a")
+            'Symbol': args.symbol,
+            'TraderId': "Price_Enforcer",
+            'Password': list("penf")
         }
         await websocket.send(json.dumps(jsonreq))
 

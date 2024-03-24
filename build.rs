@@ -40,7 +40,8 @@ fn main() {
         Columbia_B,
         Columbia_C,
         Columbia_D,
-        Columbia_Viz
+        Columbia_Viz,
+        Price_Enforcer
     ]
     ";
 

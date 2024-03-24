@@ -10,6 +10,7 @@ use actix_web::Error;
 use actix_web_actors::ws;
 use log::info;
 use plotters::coord::types;
+use serde_json::json;
 use uuid::serde;
 use std::env;
 use std::f32::consts::E;
@@ -307,13 +308,16 @@ impl Handler<Arc<orderbook::Fill>> for MyWebSocketActor {
 
     fn handle(&mut self, msg: Arc<orderbook::Fill>, ctx: &mut Self::Context) {
         let fill_event = msg;
-        ctx.text(format!(
-            "{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
-            fill_event.sell_trader_id,
-            fill_event.buy_trader_id,
-            fill_event.amount,
-            fill_event.symbol,
-            fill_event.price
+        ctx.text(stringify!(
+            {
+                "MessageType": "YourFillMessage",
+                "Content": {
+                    "amount": fill_event.amount,
+                    "order_id": TBD
+                    "symbol": fill_event.symbol
+                    "price": fill_event.price
+                }
+            }
         ));
     }
 }
@@ -335,7 +339,10 @@ impl Handler<Arc<orderbook::LimLevUpdate>> for MyWebSocketActor {
     fn handle(&mut self, msg: Arc<orderbook::LimLevUpdate>, ctx: &mut Self::Context) {
         // debug!("LimLevUpdate Message Received");
         // msg.print_book_state()
-        ctx.text(serde_json::to_string(&(*msg).clone()).unwrap());
+        ctx.text(stringify!({
+            "MessageType": "LimLevelUpdate"
+            "Content": &(*msg).clone()
+        }));
     }
 }
 
@@ -473,7 +480,10 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
         
                             // measured @~14microseconds.
                             // for some reason goes up as more orders are added :(
-                            ctx.text(res);
+                            ctx.text(stringify!({
+                                "MessageType": "OrderResponse",
+                                "Content": res
+                            }));
                         }
                     }
                     IncomingMessage::CancelRequest(cancel_req) => {
@@ -506,7 +516,10 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                                 "orders/sec: {:?}",
                                 self.order_counter.load(std::sync::atomic::Ordering::SeqCst) / usize::try_from(secs_elapsed.as_secs()).unwrap()
                             );
-                            ctx.text(res);
+                            ctx.text(stringify!({
+                                "MessageType": "CancelResponse",
+                                "Content": res
+                            }));
                     };
                 }
             }
