@@ -1,8 +1,8 @@
 use crate::accounts;
-use crate::api_messages::{OrderRequest, CancelRequest};
-use crate::connection_server;
+use crate::api_messages::{CancelIDNotFoundError, CancelRequest, OrderRequest};
 use crate::config;
 use crate::config::TickerSymbol;
+use crate::connection_server;
 use queues;
 use queues::IsQueue;
 use std::sync::Arc;
@@ -100,8 +100,6 @@ struct LimitLevel {
     total_volume: usize,
 }
 
-
-
 #[derive(Debug, Clone, Serialize)]
 pub struct Order {
     /// Struct representing an existing order in the order book
@@ -116,7 +114,6 @@ pub struct Order {
 struct Trader {
     id: TraderId,
 }
-
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
@@ -137,7 +134,8 @@ impl OrderBook {
         &mut self,
         new_order_request: OrderRequest,
         order_counter: &web::Data<Arc<AtomicUsize>>,
-    ) -> OrderID {
+    ) -> Order {
+        // should add error handling if push fails
         debug!("add_order_to_book trigger");
         // uuid creation is taking non negligible time
         let order_id = order_counter.fetch_add(1, Ordering::Relaxed);
@@ -157,7 +155,7 @@ impl OrderBook {
                 };
                 self.buy_side_limit_levels[new_order.price]
                     .orders
-                    .push(new_order);
+                    .push(new_order.clone());
             }
             OrderType::Sell => {
                 if self.current_low_sell_price > new_order.price {
@@ -165,10 +163,10 @@ impl OrderBook {
                 };
                 self.sell_side_limit_levels[new_order.price]
                     .orders
-                    .push(new_order);
+                    .push(new_order.clone());
             }
         }
-        order_id
+        new_order
     }
 
     // should use Result instead of Option to pass up info about error if needed.
@@ -177,9 +175,9 @@ impl OrderBook {
         cancel_request: CancelRequest,
         order_counter: &web::Data<Arc<AtomicUsize>>,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
-    ) -> Option<Order> {
+    ) -> Result<Order, Box<dyn std::error::Error>> {
         debug!("remove_order_by_uuid trigger");
-        
+
         match cancel_request.side {
             OrderType::Buy => {
                 let mut index = 0;
@@ -191,14 +189,24 @@ impl OrderBook {
                     if self.buy_side_limit_levels[cancel_request.price].orders[index].order_id
                         == cancel_request.order_id
                     {
-                        return Some(
-                            self.buy_side_limit_levels[cancel_request.price]
+                        let canceled_order = self.buy_side_limit_levels[cancel_request.price]
                                 .orders
-                                .remove(index),
-                        );
+                                .remove(index);
+                        relay_server_addr.do_send(LimLevUpdate {
+                                level: cancel_request.price,
+                                total_order_vol: self.buy_side_limit_levels[cancel_request.price].total_volume,
+                                side: OrderType::Buy,
+                                symbol: self.symbol,
+                                timestamp: SystemTime::now()
+                                    .duration_since(UNIX_EPOCH)
+                                    .expect("System Time Error")
+                                    .subsec_nanos() as usize,
+                            });
+                        return Ok(canceled_order);
                     }
                     index += 1;
                 }
+                return Err(Box::new(CancelIDNotFoundError))
             }
             OrderType::Sell => {
                 let mut index = 0;
@@ -210,27 +218,30 @@ impl OrderBook {
                     if self.sell_side_limit_levels[cancel_request.price].orders[index].order_id
                         == cancel_request.order_id
                     {
-                        return Some(
+                        let canceled_order = 
                             self.sell_side_limit_levels[cancel_request.price]
                                 .orders
-                                .remove(index),
-                        );
+                                .remove(index);
+                        relay_server_addr.do_send(LimLevUpdate {
+                                level: cancel_request.price,
+                                total_order_vol: self.buy_side_limit_levels[cancel_request.price].total_volume,
+                                side: OrderType::Buy,
+                                symbol: self.symbol,
+                                timestamp: SystemTime::now()
+                                    .duration_since(UNIX_EPOCH)
+                                    .expect("System Time Error")
+                                    .subsec_nanos() as usize,
+                            });
+                        return Ok(canceled_order);
                     }
                     index += 1;
                 }
+                return Err(Box::new(CancelIDNotFoundError))
             }
-        }
-        relay_server_addr.do_send(LimLevUpdate {
-            level: cancel_request.price,
-            total_order_vol: self.buy_side_limit_levels[cancel_request.price].total_volume,
-            side: OrderType::Buy,
-            symbol: self.symbol,
-            timestamp: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("System Time Error")
-                .subsec_nanos() as usize,
-        });
-        None
+        };
+
+        
+
     }
 
     pub fn handle_incoming_order_request(
@@ -239,7 +250,7 @@ impl OrderBook {
         accounts_data: &web::Data<config::GlobalAccountState>,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
         order_counter: &web::Data<Arc<AtomicUsize>>,
-    ) -> Option<OrderID> {
+    ) -> Result<Order, Box<dyn std::error::Error>> {
         match new_order_request.order_type {
             OrderType::Buy => self.handle_incoming_buy(
                 new_order_request,
@@ -261,7 +272,7 @@ impl OrderBook {
         accounts_data: &web::Data<config::GlobalAccountState>,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
         order_counter: &web::Data<Arc<AtomicUsize>>,
-    ) -> Option<OrderID> {
+    ) -> Result<Order, Box<dyn std::error::Error>> {
         debug!(
             "Incoming sell, current high buy {:?}, current low sell {:?}",
             self.current_high_buy_price, self.current_low_sell_price
@@ -360,7 +371,7 @@ impl OrderBook {
         // will be changed to beam out book state to subscribers
 
         if sell_order.amount > 0 {
-            let resting_order_id = self.add_order_to_book(sell_order, order_counter);
+            let resting_order = self.add_order_to_book(sell_order, order_counter);
             self.sell_side_limit_levels[sell_order.price].total_volume += sell_order.amount;
             // self.print_book_state();
             // issue async is the culprit hanging up performance
@@ -396,10 +407,17 @@ impl OrderBook {
                     self.current_high_buy_price, self.current_low_sell_price
                 )
             };
-            return Some(resting_order_id);
+            return Ok(resting_order);
         } else {
             // self.print_book_state();
-            return None;
+            return Ok(Order {
+                order_id: 0,
+                trader_id: sell_order.trader_id,
+                symbol: sell_order.symbol,
+                amount: sell_order.amount,
+                price: sell_order.price,
+                order_type: OrderType::Sell,
+            });
         }
     }
     fn handle_incoming_buy(
@@ -408,7 +426,7 @@ impl OrderBook {
         accounts_data: &web::Data<config::GlobalAccountState>,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
         order_counter: &web::Data<Arc<AtomicUsize>>,
-    ) -> Option<OrderID> {
+    ) -> Result<Order, Box<dyn std::error::Error>> {
         debug!(
             "Incoming Buy, current low sell {:?}, current high buy {:?}",
             self.current_low_sell_price, self.current_high_buy_price
@@ -503,7 +521,7 @@ impl OrderBook {
         // will be changed to beam out book state to subscribers
 
         if buy_order.amount > 0 {
-            let resting_order_id = self.add_order_to_book(buy_order, order_counter);
+            let resting_order = self.add_order_to_book(buy_order, order_counter);
             // self.print_book_state();
             debug!(
                 "Increasing total_volume on buy_side_limit_levels @ price {:?}",
@@ -526,7 +544,7 @@ impl OrderBook {
                     .expect("System Time Error")
                     .subsec_nanos() as usize,
             });
-            debug!("resting_order_id: {:?}", resting_order_id);
+            debug!("resting_order: {:?}", resting_order);
             // Add check for remaining cross here
             if (self.current_high_buy_price >= self.current_low_sell_price) {
                 warn!(
@@ -539,10 +557,17 @@ impl OrderBook {
                     self.current_high_buy_price, self.current_low_sell_price
                 )
             };
-            return Some(resting_order_id);
+            return Ok(resting_order);
         } else {
-            // self.print_book_state();
-            return None;
+            // order was filled before it rested on the book, order_id = 0 is special
+            return Ok(Order {
+                order_id: 0,
+                trader_id: buy_order.trader_id,
+                symbol: buy_order.symbol,
+                amount: buy_order.amount,
+                price: buy_order.price,
+                order_type: OrderType::Buy,
+            });
         }
     }
 

@@ -21,7 +21,7 @@ use actix_broker::{ArbiterBroker, Broker, BrokerIssue, BrokerSubscribe, SystemBr
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(4);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
-use crate::api_messages::{CancelRequest, OrderConfimMessage, OrderRequest};
+use crate::api_messages::{CancelConfirmMessage, CancelErrorMessage, CancelRequest, OrderConfirmMessage, OrderPlaceErrorMessage, OrderPlaceResponse, OrderRequest};
 use crate::message_types::OpenMessage;
 use crate::orderbook::{Fill, TraderId};
 use crate::websockets::ws::CloseCode::Policy;
@@ -66,14 +66,13 @@ enum IncomingMessage {
     CancelRequest(CancelRequest),
 }
 
-fn add_order(
+fn add_order<'a> (
     order_request: OrderRequest,
     data: &web::Data<crate::config::GlobalOrderBookState>,
     accounts_data: &web::Data<crate::config::GlobalAccountState>,
-    // start_time: &web::Data<SystemTime>,
     relay_server_addr: &web::Data<Addr<crate::connection_server::Server>>,
     order_counter: &web::Data<Arc<AtomicUsize>>,
-) -> String {
+) -> OrderPlaceResponse<'a> {
     debug!("Add Order Triggered!");
 
     let order_request_inner = order_request;
@@ -92,7 +91,12 @@ fn add_order(
             .net_cents_balance
             < cent_value)
         {
-            return String::from("Error Placing Order: The total value of order is greater than current account balance");
+            return OrderPlaceResponse::OrderPlaceErrorMessage(OrderPlaceErrorMessage{
+                side: order_request_inner.order_type,
+                price: order_request_inner.price,
+                symbol: order_request_inner.symbol,
+                error_details: "Error Placing Order: The total value of order is greater than current account balance"
+            })
         }
         accounts_data
             .index_ref(order_request_inner.trader_id)
@@ -115,9 +119,12 @@ fn add_order(
             < order_request_inner.amount)
         {
             debug!("Error: attempted short sell");
-            return String::from(
-                "Error Placing Order: The total amount of this trade would take your account short",
-            );
+            return OrderPlaceResponse::OrderPlaceErrorMessage(OrderPlaceErrorMessage{
+                side: order_request_inner.order_type,
+                price: order_request_inner.price,
+                symbol: order_request_inner.symbol,
+                error_details: "Error Placing Order: The total amount of this trade would take your account short"
+            })
         }
 
         *accounts_data
@@ -156,41 +163,61 @@ fn add_order(
     // jnj_orderbook.lock().unwrap().print_book_state();
     // ISSUE: need to borrow accounts as mutable without knowing which ones will be needed to be borrowed
     // maybe pass in immutable reference to entire account state, and only acquire the locks for the mutex's that it turns out we need
-    let order_id = data
+    let order = data
         .index_ref(&symbol.clone())
         .lock()
         .unwrap()
         .handle_incoming_order_request(order_request_inner.clone(), accounts_data, relay_server_addr, order_counter);
-    // let book_state = data.index_ref(symbol).lock().unwrap();
-
-    match order_id {
-        Some(inner) => return inner.to_string(),
-        None => String::from("Filled"),
+    
+    // very gross, should deal with
+    match order {
+        Ok(inner) => {
+            return OrderPlaceResponse::OrderConfirmMessage(OrderConfirmMessage { 
+                order_info: inner
+            })
+        },
+        Err(err) => {
+            return OrderPlaceResponse::OrderPlaceErrorMessage(OrderPlaceErrorMessage {
+                side: order_request_inner.order_type,
+                price: order_request_inner.price,
+                symbol: order_request_inner.symbol,
+                error_details: "unknown error when placing order",
+            })
+        },
     }
 }
 
-fn cancel_order(
+fn cancel_order <'a> (
     cancel_request: CancelRequest,
     data: &web::Data<crate::config::GlobalOrderBookState>,
     relay_server_addr: &web::Data<Addr<crate::connection_server::Server>>,
     order_counter: &web::Data<Arc<AtomicUsize>>,
-) -> String {
+) -> crate::api_messages::OrderCancelResponse<'a> {
+
     let cancel_request_inner = cancel_request;
     let symbol = &cancel_request_inner.symbol;
-    let order_id = data
+    let order = data
         .index_ref(symbol)
         .lock()
         .unwrap()
         .handle_incoming_cancel_request(cancel_request_inner, order_counter, relay_server_addr);
     // todo: add proper error handling/messaging
     // instead of returning none, this should return Result and I can catch it here to propagate up actix framework
-    match order_id {
-        Some(inner) => serde_json::to_string(&OrderConfimMessage {
-            order_info: inner
-        }).unwrap(),
-        None => String::from(
-            "Issue processing cancellation request, the order may have been already executed.",
-        ),
+    match order {
+        Ok(inner) => {
+            return crate::api_messages::OrderCancelResponse::CancelConfirmMessage(CancelConfirmMessage { 
+                order_info: inner
+            })
+        },
+        Err(err) => {
+            return crate::api_messages::OrderCancelResponse::CancelErrorMessage(CancelErrorMessage {
+                side: OrderType::Sell,
+                price: cancel_request_inner.price,
+                symbol: cancel_request_inner.symbol,
+                error_details: "unknown error when placing order",
+                order_id: cancel_request_inner.order_id,
+            })
+        },
     }
 }
 
@@ -336,6 +363,7 @@ impl Handler<Arc<orderbook::LimLevUpdate>> for MyWebSocketActor {
     fn handle(&mut self, msg: Arc<orderbook::LimLevUpdate>, ctx: &mut Self::Context) {
         // debug!("LimLevUpdate Message Received");
         // msg.print_book_state()
+        
         ctx.text(stringify!({
             "MessageType": "LimLevelUpdate"
             "Content": &(*msg).clone()
@@ -477,10 +505,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
         
                             // measured @~14microseconds.
                             // for some reason goes up as more orders are added :(
-                            ctx.text(stringify!({
-                                "MessageType": "OrderResponse",
-                                "Content": res
-                            }));
+
+                            ctx.text(serde_json::to_string(&res).unwrap())
+                            
                         }
                     }
                     IncomingMessage::CancelRequest(cancel_req) => {
@@ -513,10 +540,8 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                                 "orders/sec: {:?}",
                                 self.order_counter.load(std::sync::atomic::Ordering::SeqCst) / usize::try_from(secs_elapsed.as_secs()).unwrap()
                             );
-                            ctx.text(stringify!({
-                                "MessageType": "CancelResponse",
-                                "Content": res
-                            }));
+
+                            ctx.text(serde_json::to_string(&res).unwrap());
                     };
                 }
             }

@@ -1,6 +1,7 @@
 use serde::Deserialize;
 use serde::Serialize;
-
+use core::fmt;
+use std::error::Error;
 use crate::accounts;
 use crate::config;
 use crate::config::TraderId;
@@ -47,13 +48,13 @@ pub struct CancelRequest {
 
 // private server -> client
 #[derive(Debug, Serialize)]
-pub struct OrderConfimMessage {
+pub struct OrderConfirmMessage {
     /// sent to trader when their order is added to the orderbook
     pub order_info: Order,
 }
 
 #[derive(Debug, Serialize)]
-pub struct CancelConfimMessage {
+pub struct CancelConfirmMessage {
     /// sent to trader when their order is removed from the orderbook due to cancel message
     pub order_info: Order
 }
@@ -66,23 +67,22 @@ pub struct OrderFillMessage {
 }
 
 #[derive(Debug, Serialize)]
-pub struct CancelErrorMessage {
+pub struct CancelErrorMessage <'a>{
     /// sent to trader if cancelling order results in error
     pub order_id: OrderID,
     pub side: OrderType,
     pub price: Price,
     pub symbol: config::TickerSymbol,
-    pub error_details: str
+    pub error_details: &'a str
 }
 
 #[derive(Debug, Serialize)]
-pub struct OrderPlaceErrorMessage {
+pub struct OrderPlaceErrorMessage <'a> {
     /// sent to trader if adding order results in error
-    pub order_id: OrderID,
     pub side: OrderType,
     pub price: Price,
     pub symbol: config::TickerSymbol,
-    pub error_details: str
+    pub error_details: &'a str
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
@@ -106,6 +106,23 @@ pub struct CancelOccurredMessage {
     pub price: Price,
 }
 
-pub enum ServerMessage {
-    ErrorMessage,
+#[derive(Debug, Serialize)]
+pub enum OrderPlaceResponse <'a> {
+    OrderPlaceErrorMessage(OrderPlaceErrorMessage<'a>),
+    OrderConfirmMessage(OrderConfirmMessage)
+}
+
+#[derive(Debug, Serialize)]
+pub enum OrderCancelResponse <'a> {
+    CancelConfirmMessage(CancelConfirmMessage),
+    CancelErrorMessage(CancelErrorMessage<'a>)
+}
+
+#[derive(Debug, Error, Clone, Serialize)]
+pub struct CancelIDNotFoundError;
+
+impl fmt::Display for CancelIDNotFoundError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "order_id not found at specified price/side")
+    }
 }
