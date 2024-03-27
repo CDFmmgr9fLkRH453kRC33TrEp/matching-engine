@@ -100,7 +100,7 @@ struct LimitLevel {
     total_volume: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Copy)]
 pub struct Order {
     /// Struct representing an existing order in the order book
     pub order_id: OrderID,

@@ -21,7 +21,7 @@ use actix_broker::{ArbiterBroker, Broker, BrokerIssue, BrokerSubscribe, SystemBr
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(4);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
-use crate::api_messages::{CancelConfirmMessage, CancelErrorMessage, CancelRequest, OrderConfirmMessage, OrderPlaceErrorMessage, OrderPlaceResponse, OrderRequest};
+use crate::api_messages::{CancelConfirmMessage, CancelErrorMessage, CancelRequest, OrderConfirmMessage, OrderPlaceErrorMessage, OrderPlaceResponse, OrderRequest, OutgoingMessage, TradeOccurredMessage};
 use crate::message_types::OpenMessage;
 use crate::orderbook::{Fill, TraderId};
 use crate::websockets::ws::CloseCode::Policy;
@@ -357,17 +357,61 @@ impl Handler<orderbook::OrderBook> for MyWebSocketActor {
     }
 }
 
+
+// TODO: generalize to Handler<Arc<T>> for generic message types
+// Implement a marker trait (something like LOBChangeMessage)
+// Handling these market data event messages is just sending out json'd version of the message struct
+// Key word: Blanket implementations
+impl Handler<Arc<TradeOccurredMessage>> for MyWebSocketActor {
+    type Result = ();
+    fn handle(&mut self, msg: Arc<TradeOccurredMessage>, ctx: &mut Self::Context) {        
+        ctx.text(serde_json::to_string(&(*msg).clone()).unwrap());
+    }
+}
+
+impl Handler<Arc<OutgoingMessage<'_>>> for MyWebSocketActor {
+    type Result = ();
+    fn handle(&mut self, msg: Arc<OutgoingMessage>, ctx: &mut Self::Context) {      
+        // there has to be a nicer way to do this, but cant figure out how to access inner type when doing a default match
+        // ctx.text(serde_json::to_string(&msg.d).unwrap());
+        
+        match *msg {
+            OutgoingMessage::NewRestingOrderMessage(m) => {
+                ctx.text(serde_json::to_string(&m).unwrap());
+            }
+            OutgoingMessage::TradeOccurredMessage(m) =>  {
+                ctx.text(serde_json::to_string(&m).unwrap());
+            }
+            OutgoingMessage::CancelOccurredMessage(m) => {
+                ctx.text(serde_json::to_string(&m).unwrap());
+            },
+            OutgoingMessage::OrderFillMessage(m) => {
+                ctx.text(serde_json::to_string(&m).unwrap());
+            },
+            OutgoingMessage::OrderConfirmMessage(m) => {
+                ctx.text(serde_json::to_string(&m).unwrap());
+            },
+            OutgoingMessage::OrderPlaceErrorMessage(m) => {
+                ctx.text(serde_json::to_string(&m).unwrap());
+            },
+            OutgoingMessage::CancelConfirmMessage(m) => {
+                ctx.text(serde_json::to_string(&m).unwrap());
+            },
+            OutgoingMessage::CancelErrorMessage(m) => {
+                ctx.text(serde_json::to_string(&m).unwrap());
+            },
+            
+        }
+    }
+}
+
 impl Handler<Arc<orderbook::LimLevUpdate>> for MyWebSocketActor {
     type Result = ();
 
     fn handle(&mut self, msg: Arc<orderbook::LimLevUpdate>, ctx: &mut Self::Context) {
         // debug!("LimLevUpdate Message Received");
         // msg.print_book_state()
-        
-        ctx.text(stringify!({
-            "MessageType": "LimLevelUpdate"
-            "Content": &(*msg).clone()
-        }));
+        ctx.text(serde_json::to_string(&(*msg).clone()).unwrap());
     }
 }
 

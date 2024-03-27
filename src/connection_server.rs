@@ -5,10 +5,10 @@
 use actix::*;
 use std::sync::Arc;
 
-use crate::message_types::OpenMessage;
+use crate::{api_messages::OutgoingMessage, message_types::OpenMessage, orderbook::LimLevUpdate};
 
 pub struct Server {
-    connected_actors: Vec<Recipient<Arc<crate::orderbook::LimLevUpdate>>>,
+    connected_actors: Vec<Recipient<Arc<LimLevUpdate>>>,
 }
 
 impl Server {
@@ -26,6 +26,7 @@ impl Actor for Server {
     type Context = Context<Self>;
 }
 
+// need to impl all "OutgoingOrderMessage"
 impl Handler<crate::orderbook::LimLevUpdate> for Server {
     // forward limit level updates to all connected actors
     type Result = ();
@@ -39,6 +40,46 @@ impl Handler<crate::orderbook::LimLevUpdate> for Server {
         let msg_arc = Arc::new(msg);
         for connection in self.connected_actors.iter() {
             connection.do_send(msg_arc.clone());
+        }
+    }
+}
+
+
+impl Handler<Arc<OutgoingMessage<'_>>> for Server {
+    type Result = ();
+    fn handle(&mut self, msg: Arc<OutgoingMessage>, ctx: &mut Self::Context) {      
+        // there has to be a nicer way to do this, but cant figure out how to access inner type when doing a default match
+        // ctx.text(serde_json::to_string(&msg.d).unwrap());
+
+        match *msg {
+            OutgoingMessage::NewRestingOrderMessage(m) => {
+                let msg_arc = Arc::new(m);
+                for connection in self.connected_actors.iter() {
+                    connection.do_send(msg_arc.clone());
+                }
+            }
+            OutgoingMessage::TradeOccurredMessage(m) =>  {
+                ctx.text(serde_json::to_string(&m).unwrap());
+            }
+            OutgoingMessage::CancelOccurredMessage(m) => {
+                ctx.text(serde_json::to_string(&m).unwrap());
+            },
+            OutgoingMessage::OrderFillMessage(m) => {
+                ctx.text(serde_json::to_string(&m).unwrap());
+            },
+            OutgoingMessage::OrderConfirmMessage(m) => {
+                ctx.text(serde_json::to_string(&m).unwrap());
+            },
+            OutgoingMessage::OrderPlaceErrorMessage(m) => {
+                ctx.text(serde_json::to_string(&m).unwrap());
+            },
+            OutgoingMessage::CancelConfirmMessage(m) => {
+                ctx.text(serde_json::to_string(&m).unwrap());
+            },
+            OutgoingMessage::CancelErrorMessage(m) => {
+                ctx.text(serde_json::to_string(&m).unwrap());
+            },
+            
         }
     }
 }
