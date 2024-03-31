@@ -270,8 +270,8 @@ pub async fn websocket(
     let conninfo = req.connection_info().clone();
 
     log::info!(
-        "New websocket connection with peer_addr {:?}",
-        conninfo.peer_addr()
+        "New websocket connection with peer_addr: {:?}, id: {:?}",
+        conninfo.peer_addr(), req.headers().get("Sec-WebSocket-Protocol").unwrap().to_str().unwrap()
     );
 
     ws::start(
@@ -283,7 +283,7 @@ pub async fn websocket(
                 .parse()
                 .unwrap(),
             associated_id: <TraderId as std::str::FromStr>::from_str(
-                req.headers().get("TraderId").unwrap().to_str().unwrap(),
+                req.headers().get("Sec-WebSocket-Protocol").unwrap().to_str().unwrap(),
             )
             .unwrap(),
             hb: Instant::now(),
@@ -453,6 +453,8 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                 None => *curr_actor = Some(ctx.address()),
             }
         }
+
+        
         let message_queue = &mut self
             .global_account_state
             .index_ref(account_id)
@@ -460,7 +462,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
             .unwrap()
             .message_backup;
 
-        // ctx.text("new message");
+        // TODO: switch to api_messages spec (only messages sent are if your order was filled)
         while (message_queue.size() != 0) {
             // println!("Message #{:?}", message_queue.size());
             let fill_event = message_queue.remove().unwrap();

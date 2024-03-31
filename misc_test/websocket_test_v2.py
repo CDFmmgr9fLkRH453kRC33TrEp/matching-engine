@@ -65,7 +65,9 @@ async def handler(websocket):
         task.cancel()
 
 async def main():
-    async with websockets.connect(uri, extra_headers = {"TraderId":args.id} ) as websocket:
+    # hack-y way around this issue:
+    # https://stackoverflow.com/questions/4361173/http-headers-in-websockets-client-api
+    async with websockets.connect(uri, extra_headers = {"Sec-WebSocket-Protocol":args.id} ) as websocket:
         await handler(websocket)
 
 if __name__ == "__main__":

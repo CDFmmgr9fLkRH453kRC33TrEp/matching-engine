@@ -870,15 +870,27 @@
         const loginform = document.getElementById("loginform");
         loginform.addEventListener("submit", logIn);
         
-        
-        ws = new WebSocket("ws://127.16.123.1:4000/orders/ws")
+        username = localStorage.getItem("cap_exchange_username")
+        password = localStorage.getItem("cap_exchange_password")
+
+        if ((username != null) && (password != null)) {
+            // case where user already put in their info and reloaded or something
+            console.log("localStorage usable")
+            ws = new WebSocket("ws://127.16.123.1:4000/orders/ws", [username])
+        }
 
         function logIn(event) {
             const data = new FormData(loginform);
             username = str(data.get("username"));
-            password = Array.from(str((data.get("password"))));
+            password = Array.from(str((data.get("password"))));            
             login('hide');
+            // dont need to worry about security
             document.getElementById("user").textContent = data.get("username");
+            localStorage.setItem("cap_exchange_username", username)
+            localStorage.setItem("cap_exchange_password", password)
+            // super hack-y, but I think this is the simplest way
+            // https://stackoverflow.com/questions/4361173/http-headers-in-websockets-client-api
+            ws = new WebSocket("ws://127.16.123.1:4000/orders/ws", [username])
             event.preventDefault;
         }
 
@@ -1008,6 +1020,7 @@
         }
 
         function any_fill_evt(evt) {
+            console.log("any_fill_evt")
             data = evt.data;
             const packet = JSON.parse(data);
             symbol = packet[symbol];
@@ -1031,6 +1044,8 @@
             tickers[tickele] = price;
             recentPrices[symbol].push(price);
         }
+
+
         function newCandle() {
             for([key, value] of Object.entries(recentPrices)) {
                 o = value[0];
@@ -1055,8 +1070,19 @@
         start_up_message = true;
         // receive a message from the server
         ws.onmessage = function (evt) {
-            const packet = JSON.parse(data);
-            msg_type = packet['MessageType'];
+
+            
+
+            data = evt.data;
+            const packet_temp = JSON.parse(data);
+            
+
+            console.log("message received:", packet_temp);
+            msg_type = Object.keys(packet_temp)[0];
+            
+            // handling the fact message type is specified as a top level key, with other data under it
+            const packet = packet_temp[msg_type]
+            
             if (start_up_message) {
                 document.getElementById("connection").textContent = "Connected 🟢";
                 data = evt.data;
@@ -1076,6 +1102,7 @@
                     }
                 }
                 update_viz(sel.value());
+            // message types declared in api_messages.rs
             } else if (msg_type == "lim_level_update") {
                 data = evt.data;
                 // console.log("data", data);
@@ -1099,8 +1126,45 @@
                 if (sel.value() == symbol) {
                     update_viz(symbol);
                 }
-            } else if (msg_type == "anyfill") {
+            } else if (msg_type == "TradeOccurredMessage") {
                 any_fill_evt(evt);
+            } else if (msg_type == "NewRestingOrderMessage") {
+                data = evt.data;
+
+                const price = parseInt(packet["price"])
+                const side = packet["side"]
+                const order_vol = parseInt(packet["amount"])
+                const symbol = packet["symbol"]
+
+                if (packet["side"] == "Buy") {
+                    console.log("updating buy side")
+                    orderbooks[symbol]["depth_chart_buy"][price] += order_vol
+                } else if (packet["side"] == "Sell") {
+                    console.log("updating sell side")
+                    orderbooks[symbol]["depth_chart_sell"][price] += order_vol
+                }
+                if (sel.value() == symbol) {
+                    update_viz(symbol);
+                }
+            } else if (msg_type == "CancelOccurredMessage") {
+                
+                data = evt.data;
+
+                const price = parseInt(packet["price"])
+                const side = packet["side"]
+                const order_vol = parseInt(packet["amount"])
+                const symbol = packet["symbol"]
+
+                if (packet["side"] == "Buy") {
+                    console.log("updating buy side")
+                    orderbooks[symbol]["depth_chart_buy"][level] -= order_vol
+                } else if (packet["side"] == "Sell") {
+                    console.log("updating sell side")
+                    orderbooks[symbol]["depth_chart_sell"][level] -= order_vol
+                }
+                if (sel.value() == symbol) {
+                    update_viz(symbol);
+                }
             } else if (msg_type == 'order_id') {
                 //BUY -> add to active orders, decrease available
                 //SELL -> add to active orders, remove "sell" button/update vis
