@@ -42,7 +42,7 @@ pub struct CancelRequest {
     pub password: accounts::Password,
 }
 
-// should we have a "request my personal info" message (which tells you your current positions etc.,)
+// should we have a "request my personal info" message (which tells you your current positions, open orders etc. to prevent desyncs?)
 
 // Server -> Client Messages
 // should all impl error::ResponseError to play nice with Actix

@@ -882,7 +882,7 @@
         function logIn(event) {
             const data = new FormData(loginform);
             username = str(data.get("username"));
-            password = Array.from(str((data.get("password"))));            
+            password = str((data.get("password")));            
             login('hide');
             // dont need to worry about security
             document.getElementById("user").textContent = data.get("username");
@@ -906,7 +906,7 @@
                     TraderId: username,
                     OrderType: data.get("type"),
                     Amount: int(data.get("amount")),
-                    Password: password,
+                    Password: Array.from(password),
                     Symbol: data.get("symbol"),
                 }
             console.log(message);
@@ -981,7 +981,7 @@
                     text(running_buy_interest, buy_pointer * col_width + col_width / 2, x_axis_offset - running_buy_interest * orderbooks[symbol]["scale_factor"])
                     fill('rgb(0, 255, 0)');
                 }
-                console.log(buy_pointer * col_width, x_axis_offset, col_width, running_buy_interest * 10);
+                // console.log(buy_pointer * col_width, x_axis_offset, col_width, running_buy_interest * 10);
                 buy_pointer -= 1;
             }
 
