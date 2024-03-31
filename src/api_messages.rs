@@ -105,7 +105,7 @@ pub struct TradeOccurredMessage {
 #[rtype(result = "()")]
 pub struct NewRestingOrderMessage {
     // sent to all traders to communicate that there has been a new order which now rests on the book
-    // replaces party of LimLevUpdate
+    // replaces part of LimLevUpdate
     pub side: OrderType,
     pub amount: usize,
     pub symbol: config::TickerSymbol,

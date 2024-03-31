@@ -34,15 +34,15 @@ use std::process::{self};
 
 use actix_broker::{ArbiterBroker, Broker, BrokerIssue, BrokerSubscribe, SystemBroker};
 
-#[derive(Serialize, Clone, Message, Debug)]
-#[rtype(result = "()")]
-pub struct LimLevUpdate {
-    level: usize,
-    total_order_vol: usize,
-    side: OrderType,
-    symbol: TickerSymbol,
-    timestamp: usize,
-}
+// #[derive(Serialize, Clone, Message, Debug)]
+// #[rtype(result = "()")]
+// pub struct LimLevUpdate {
+//     level: usize,
+//     total_order_vol: usize,
+//     side: OrderType,
+//     symbol: TickerSymbol,
+//     timestamp: usize,
+// }
 
 // Logging
 extern crate env_logger;

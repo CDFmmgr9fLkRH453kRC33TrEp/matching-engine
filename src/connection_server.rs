@@ -5,7 +5,7 @@
 use actix::*;
 use std::sync::Arc;
 
-use crate::{api_messages::OutgoingMessage, message_types::OpenMessage, orderbook::LimLevUpdate};
+use crate::{api_messages::OutgoingMessage, message_types::OpenMessage};
 
 pub struct Server{
     connected_actors: Vec<Recipient<Arc<OutgoingMessage>>>,
@@ -27,21 +27,21 @@ impl Actor for Server {
 }
 
 // need to impl all "OutgoingOrderMessage"
-impl Handler<crate::orderbook::LimLevUpdate> for Server {
-    // forward limit level updates to all connected actors
-    type Result = ();
-    fn handle(
-        &mut self,
-        msg: crate::orderbook::LimLevUpdate,
-        ctx: &mut Self::Context,
-    ) -> Self::Result {
-        debug!("New LimLevUpdate Message Received by Relay Server");
-        let msg_arc = Arc::new(msg);
-        for connection in self.connected_actors.iter() {
-            // connection.do_send(msg_arc.clone());
-        }
-    }
-}
+// impl Handler<crate::orderbook::LimLevUpdate> for Server {
+//     // forward limit level updates to all connected actors
+//     type Result = ();
+//     fn handle(
+//         &mut self,
+//         msg: crate::orderbook::LimLevUpdate,
+//         ctx: &mut Self::Context,
+//     ) -> Self::Result {
+//         debug!("New LimLevUpdate Message Received by Relay Server");
+//         let msg_arc = Arc::new(msg);
+//         for connection in self.connected_actors.iter() {
+//             // connection.do_send(msg_arc.clone());
+//         }
+//     }
+// }
 
 
 impl Handler<Arc<OutgoingMessage>> for Server {
