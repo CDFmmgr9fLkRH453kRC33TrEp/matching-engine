@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use crate::{api_messages::OutgoingMessage, message_types::OpenMessage, orderbook::LimLevUpdate};
 
-pub struct Server {
-    connected_actors: Vec<Recipient<Arc<LimLevUpdate>>>,
+pub struct Server{
+    connected_actors: Vec<Recipient<Arc<OutgoingMessage>>>,
 }
 
 impl Server {
@@ -30,7 +30,6 @@ impl Actor for Server {
 impl Handler<crate::orderbook::LimLevUpdate> for Server {
     // forward limit level updates to all connected actors
     type Result = ();
-
     fn handle(
         &mut self,
         msg: crate::orderbook::LimLevUpdate,
@@ -39,13 +38,13 @@ impl Handler<crate::orderbook::LimLevUpdate> for Server {
         debug!("New LimLevUpdate Message Received by Relay Server");
         let msg_arc = Arc::new(msg);
         for connection in self.connected_actors.iter() {
-            connection.do_send(msg_arc.clone());
+            // connection.do_send(msg_arc.clone());
         }
     }
 }
 
 
-impl Handler<Arc<OutgoingMessage<'_>>> for Server {
+impl Handler<Arc<OutgoingMessage>> for Server {
     type Result = ();
     fn handle(&mut self, msg: Arc<OutgoingMessage>, ctx: &mut Self::Context) {      
         // there has to be a nicer way to do this, but cant figure out how to access inner type when doing a default match
@@ -53,33 +52,23 @@ impl Handler<Arc<OutgoingMessage<'_>>> for Server {
 
         match *msg {
             OutgoingMessage::NewRestingOrderMessage(m) => {
-                let msg_arc = Arc::new(m);
+                let msg_arc = Arc::new(OutgoingMessage::NewRestingOrderMessage(m));
                 for connection in self.connected_actors.iter() {
                     connection.do_send(msg_arc.clone());
                 }
             }
             OutgoingMessage::TradeOccurredMessage(m) =>  {
-                ctx.text(serde_json::to_string(&m).unwrap());
+                let msg_arc = Arc::new(OutgoingMessage::TradeOccurredMessage(m));
+                for connection in self.connected_actors.iter() {
+                    connection.do_send(msg_arc.clone());
+                }
             }
             OutgoingMessage::CancelOccurredMessage(m) => {
-                ctx.text(serde_json::to_string(&m).unwrap());
-            },
-            OutgoingMessage::OrderFillMessage(m) => {
-                ctx.text(serde_json::to_string(&m).unwrap());
-            },
-            OutgoingMessage::OrderConfirmMessage(m) => {
-                ctx.text(serde_json::to_string(&m).unwrap());
-            },
-            OutgoingMessage::OrderPlaceErrorMessage(m) => {
-                ctx.text(serde_json::to_string(&m).unwrap());
-            },
-            OutgoingMessage::CancelConfirmMessage(m) => {
-                ctx.text(serde_json::to_string(&m).unwrap());
-            },
-            OutgoingMessage::CancelErrorMessage(m) => {
-                ctx.text(serde_json::to_string(&m).unwrap());
-            },
-            
+                let msg_arc = Arc::new(OutgoingMessage::CancelOccurredMessage(m));
+                for connection in self.connected_actors.iter() {
+                    connection.do_send(msg_arc.clone());
+                }
+            }            
         }
     }
 }
@@ -94,6 +83,20 @@ impl Handler<crate::message_types::OpenMessage> for Server{
     ) -> Self::Result {
         let res = self.connected_actors.push(msg.addr);
         debug!("New websocket actor registered!");
+        debug!("Full list: {:?}", &self.connected_actors);        
+        res
+    }
+}
+
+impl Handler<crate::message_types::CloseMessage> for Server{
+    type Result = ();
+    fn handle(
+        &mut self,
+        msg: crate::message_types::CloseMessage,
+        ctx: &mut Self::Context,
+    ) -> Self::Result {
+        let res = self.connected_actors.retain(|x| x != &msg.addr);
+        debug!("Websocket actor disconnected!");
         debug!("Full list: {:?}", &self.connected_actors);        
         res
     }

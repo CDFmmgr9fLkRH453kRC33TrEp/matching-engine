@@ -2,7 +2,6 @@ use actix::Message;
 use serde::Deserialize;
 use serde::Serialize;
 use core::fmt;
-use std::error::Error;
 use crate::accounts;
 use crate::config;
 use crate::config::TraderId;
@@ -10,8 +9,7 @@ use crate::orderbook::Order;
 use crate::orderbook::OrderID;
 use crate::orderbook::OrderType;
 use crate::orderbook::Price;
-use actix_web::{error, Result};
-use derive_more::{Display, Error};
+use derive_more::Error;
 
 // Client -> Server Messages
 #[derive(Serialize, Deserialize)]
@@ -97,8 +95,6 @@ pub struct OrderPlaceErrorMessage <'a> {
 pub struct TradeOccurredMessage {
     /// sent to all traders' mailboxes when a trade occurs
     // should it ignore the buyer/seller who already got a message about the trade? -> no, this should be handled client side
-    // true if resting order is completely filled and removed from book
-    pub order_dead: bool,
     pub amount: usize,
     pub symbol: config::TickerSymbol,
     // price at which trade occurred (should be resting order's price)
@@ -138,18 +134,13 @@ pub enum OrderCancelResponse <'a> {
     CancelErrorMessage(CancelErrorMessage<'a>)
 }
 
-#[derive(Message, Clone)]
+#[derive(Message, Clone, Serialize)]
 #[rtype(result = "()")]
-pub enum OutgoingMessage <'a>{
+pub enum OutgoingMessage{
     // To make implementing default Handler for actors easier
     TradeOccurredMessage(TradeOccurredMessage),
     NewRestingOrderMessage(NewRestingOrderMessage),
     CancelOccurredMessage(CancelOccurredMessage),
-    OrderFillMessage(OrderFillMessage),
-    OrderConfirmMessage(OrderConfirmMessage),
-    OrderPlaceErrorMessage(OrderPlaceErrorMessage<'a>),
-    CancelConfirmMessage(CancelConfirmMessage),
-    CancelErrorMessage(CancelErrorMessage<'a>),
 }
 
 #[derive(Debug, Error, Clone, Serialize)]

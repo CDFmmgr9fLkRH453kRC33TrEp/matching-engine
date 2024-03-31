@@ -7,7 +7,9 @@ import math
 import random
 
 
-
+# NEED TO SET UP FOR LOCAL TESTING
+# sudo ifconfig lo0 alias 127.16.123.1 (columbia a)
+# sudo ifconfig lo0 alias 127.16.123.2 (columbia b)
 
 parser = argparse.ArgumentParser()
 

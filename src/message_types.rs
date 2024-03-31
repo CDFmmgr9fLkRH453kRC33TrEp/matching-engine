@@ -2,11 +2,18 @@
 use actix::*;
 use std::sync::Arc;
 
-use crate::{config::TraderIp, orderbook::{TraderId, LimLevUpdate}};
+use crate::{api_messages::OutgoingMessage, config::TraderIp, orderbook::{LimLevUpdate, TraderId}};
 
 #[derive(Message)]
 #[rtype(result = "()")]
 pub struct OpenMessage{
     pub ip: TraderIp,
-    pub addr: Recipient<Arc<LimLevUpdate>>
+    pub addr: Recipient<Arc<OutgoingMessage>>
+}
+
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct CloseMessage{
+    pub ip: TraderIp,
+    pub addr: Recipient<Arc<OutgoingMessage>>
 }

@@ -5,14 +5,14 @@ use actix_web_actors::ws;
 use log::info;
 use plotters::coord::types;
 use serde_json::json;
-use uuid::serde;
 use std::env;
 use std::f32::consts::E;
 use std::fmt::format;
 use std::net::Ipv4Addr;
+use std::sync::atomic::AtomicUsize;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime};
-use std::sync::atomic::AtomicUsize;
+use uuid::serde;
 
 use strum::IntoEnumIterator; // 0.17.1
 use strum_macros::EnumIter; // 0.17.1
@@ -21,8 +21,12 @@ use actix_broker::{ArbiterBroker, Broker, BrokerIssue, BrokerSubscribe, SystemBr
 
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(4);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
-use crate::api_messages::{CancelConfirmMessage, CancelErrorMessage, CancelRequest, OrderConfirmMessage, OrderPlaceErrorMessage, OrderPlaceResponse, OrderRequest, OutgoingMessage, TradeOccurredMessage};
-use crate::message_types::OpenMessage;
+use crate::api_messages::{
+    CancelConfirmMessage, CancelErrorMessage, CancelRequest, OrderConfirmMessage,
+    OrderPlaceErrorMessage, OrderPlaceResponse, OrderRequest, OutgoingMessage,
+    TradeOccurredMessage,
+};
+use crate::message_types::{CloseMessage, OpenMessage};
 use crate::orderbook::{Fill, TraderId};
 use crate::websockets::ws::CloseCode::Policy;
 use crate::websockets::ws::CloseReason;
@@ -56,7 +60,7 @@ use crate::config::TickerSymbol;
 use crate::config::GlobalAccountState;
 use crate::config::GlobalOrderBookState;
 
-use ::serde::{Serialize, Deserialize};
+use ::serde::{de, Deserialize, Serialize};
 
 // use crate::parser;
 #[derive(Serialize, Deserialize)]
@@ -66,7 +70,7 @@ enum IncomingMessage {
     CancelRequest(CancelRequest),
 }
 
-fn add_order<'a> (
+fn add_order<'a>(
     order_request: OrderRequest,
     data: &web::Data<crate::config::GlobalOrderBookState>,
     accounts_data: &web::Data<crate::config::GlobalAccountState>,
@@ -96,7 +100,7 @@ fn add_order<'a> (
                 price: order_request_inner.price,
                 symbol: order_request_inner.symbol,
                 error_details: "Error Placing Order: The total value of order is greater than current account balance"
-            })
+            });
         }
         accounts_data
             .index_ref(order_request_inner.trader_id)
@@ -124,7 +128,7 @@ fn add_order<'a> (
                 price: order_request_inner.price,
                 symbol: order_request_inner.symbol,
                 error_details: "Error Placing Order: The total amount of this trade would take your account short"
-            })
+            });
         }
 
         *accounts_data
@@ -167,15 +171,20 @@ fn add_order<'a> (
         .index_ref(&symbol.clone())
         .lock()
         .unwrap()
-        .handle_incoming_order_request(order_request_inner.clone(), accounts_data, relay_server_addr, order_counter);
-    
+        .handle_incoming_order_request(
+            order_request_inner.clone(),
+            accounts_data,
+            relay_server_addr,
+            order_counter,
+        );
+
     // very gross, should deal with
     match order {
         Ok(inner) => {
-            return OrderPlaceResponse::OrderConfirmMessage(OrderConfirmMessage { 
-                order_info: inner
+            return OrderPlaceResponse::OrderConfirmMessage(OrderConfirmMessage {
+                order_info: inner,
             })
-        },
+        }
         Err(err) => {
             return OrderPlaceResponse::OrderPlaceErrorMessage(OrderPlaceErrorMessage {
                 side: order_request_inner.order_type,
@@ -183,17 +192,16 @@ fn add_order<'a> (
                 symbol: order_request_inner.symbol,
                 error_details: "unknown error when placing order",
             })
-        },
+        }
     }
 }
 
-fn cancel_order <'a> (
+fn cancel_order<'a>(
     cancel_request: CancelRequest,
     data: &web::Data<crate::config::GlobalOrderBookState>,
     relay_server_addr: &web::Data<Addr<crate::connection_server::Server>>,
     order_counter: &web::Data<Arc<AtomicUsize>>,
 ) -> crate::api_messages::OrderCancelResponse<'a> {
-
     let cancel_request_inner = cancel_request;
     let symbol = &cancel_request_inner.symbol;
     let order = data
@@ -205,19 +213,21 @@ fn cancel_order <'a> (
     // instead of returning none, this should return Result and I can catch it here to propagate up actix framework
     match order {
         Ok(inner) => {
-            return crate::api_messages::OrderCancelResponse::CancelConfirmMessage(CancelConfirmMessage { 
-                order_info: inner
-            })
-        },
+            return crate::api_messages::OrderCancelResponse::CancelConfirmMessage(
+                CancelConfirmMessage { order_info: inner },
+            )
+        }
         Err(err) => {
-            return crate::api_messages::OrderCancelResponse::CancelErrorMessage(CancelErrorMessage {
-                side: OrderType::Sell,
-                price: cancel_request_inner.price,
-                symbol: cancel_request_inner.symbol,
-                error_details: "unknown error when placing order",
-                order_id: cancel_request_inner.order_id,
-            })
-        },
+            return crate::api_messages::OrderCancelResponse::CancelErrorMessage(
+                CancelErrorMessage {
+                    side: OrderType::Sell,
+                    price: cancel_request_inner.price,
+                    symbol: cancel_request_inner.symbol,
+                    error_details: "unknown error when placing order",
+                    order_id: cancel_request_inner.order_id,
+                },
+            )
+        }
     }
 }
 
@@ -227,7 +237,7 @@ pub struct MyWebSocketActor {
     hb: Instant,
     global_account_state: web::Data<crate::config::GlobalAccountState>,
     global_orderbook_state: web::Data<crate::config::GlobalOrderBookState>,
-    // for testing. 
+    // for testing.
     start_time: web::Data<SystemTime>,
     t_orders: usize,
     relay_server_addr: web::Data<Addr<crate::connection_server::Server>>,
@@ -258,12 +268,11 @@ pub async fn websocket(
     order_counter: web::Data<Arc<AtomicUsize>>,
 ) -> Result<HttpResponse, Error> {
     let conninfo = req.connection_info().clone();
-    
+
     log::info!(
         "New websocket connection with peer_addr {:?}",
         conninfo.peer_addr()
     );
-
 
     ws::start(
         MyWebSocketActor {
@@ -273,7 +282,10 @@ pub async fn websocket(
                 .unwrap()
                 .parse()
                 .unwrap(),
-            associated_id: <TraderId as std::str::FromStr>::from_str(req.headers().get("TraderId").unwrap().to_str().unwrap()).unwrap(),
+            associated_id: <TraderId as std::str::FromStr>::from_str(
+                req.headers().get("TraderId").unwrap().to_str().unwrap(),
+            )
+            .unwrap(),
             hb: Instant::now(),
             global_account_state: accounts_data.clone(),
             global_orderbook_state: orderbook_data.clone(),
@@ -294,9 +306,9 @@ impl Actor for MyWebSocketActor {
     fn started(&mut self, ctx: &mut Self::Context) {
         self.subscribe_system_async::<orderbook::OrderBook>(ctx);
         // self.subscribe_system_async::<orderbook::LimLevUpdate>(ctx);
-        self.relay_server_addr.do_send(OpenMessage{
-            ip : self.connection_ip,
-            addr: ctx.address().recipient()
+        self.relay_server_addr.do_send(OpenMessage {
+            ip: self.connection_ip,
+            addr: ctx.address().recipient(),
         });
         debug!("Subscribed");
         self.hb(ctx);
@@ -310,17 +322,26 @@ impl Actor for MyWebSocketActor {
             .lock()
             .unwrap()
             .current_actor;
+        self.relay_server_addr.do_send(CloseMessage {
+            ip: self.connection_ip,
+            addr: ctx.address().recipient(),
+        });
+
         match curr_actor {
             Some(x) => {
                 *curr_actor = None;
             }
-            None => error!("Error, no websocket connected?"),
+            None => warn!("curr_actor already None"),
         }
         info!(
             "Websocket connection ended (peer_ip:{}).",
             self.connection_ip
         );
-        info!("curr_order_count {:?}", self.order_counter.load(std::sync::atomic::Ordering::Relaxed))
+        info!(
+            "curr_order_count {:?}",
+            self.order_counter
+                .load(std::sync::atomic::Ordering::Relaxed)
+        )
     }
 }
 
@@ -357,51 +378,30 @@ impl Handler<orderbook::OrderBook> for MyWebSocketActor {
     }
 }
 
-
 // TODO: generalize to Handler<Arc<T>> for generic message types
 // Implement a marker trait (something like LOBChangeMessage)
 // Handling these market data event messages is just sending out json'd version of the message struct
 // Key word: Blanket implementations
-impl Handler<Arc<TradeOccurredMessage>> for MyWebSocketActor {
+impl Handler<Arc<OutgoingMessage>> for MyWebSocketActor {
     type Result = ();
-    fn handle(&mut self, msg: Arc<TradeOccurredMessage>, ctx: &mut Self::Context) {        
-        ctx.text(serde_json::to_string(&(*msg).clone()).unwrap());
-    }
-}
-
-impl Handler<Arc<OutgoingMessage<'_>>> for MyWebSocketActor {
-    type Result = ();
-    fn handle(&mut self, msg: Arc<OutgoingMessage>, ctx: &mut Self::Context) {      
+    fn handle(&mut self, msg: Arc<OutgoingMessage>, ctx: &mut Self::Context) {
         // there has to be a nicer way to do this, but cant figure out how to access inner type when doing a default match
-        // ctx.text(serde_json::to_string(&msg.d).unwrap());
-        
-        match *msg {
-            OutgoingMessage::NewRestingOrderMessage(m) => {
-                ctx.text(serde_json::to_string(&m).unwrap());
-            }
-            OutgoingMessage::TradeOccurredMessage(m) =>  {
-                ctx.text(serde_json::to_string(&m).unwrap());
-            }
-            OutgoingMessage::CancelOccurredMessage(m) => {
-                ctx.text(serde_json::to_string(&m).unwrap());
-            },
-            OutgoingMessage::OrderFillMessage(m) => {
-                ctx.text(serde_json::to_string(&m).unwrap());
-            },
-            OutgoingMessage::OrderConfirmMessage(m) => {
-                ctx.text(serde_json::to_string(&m).unwrap());
-            },
-            OutgoingMessage::OrderPlaceErrorMessage(m) => {
-                ctx.text(serde_json::to_string(&m).unwrap());
-            },
-            OutgoingMessage::CancelConfirmMessage(m) => {
-                ctx.text(serde_json::to_string(&m).unwrap());
-            },
-            OutgoingMessage::CancelErrorMessage(m) => {
-                ctx.text(serde_json::to_string(&m).unwrap());
-            },
-            
-        }
+        // these messages are sent by Server detailed in connection_server.rs
+        ctx.text(serde_json::to_string(&msg).unwrap());
+        // match *msg {
+        //     OutgoingMessage::NewRestingOrderMessage(m) => {
+        //         debug!("NewRestingOrderMessage Received");
+        //         ctx.text(serde_json::to_string(&msg).unwrap());
+        //     }
+        //     OutgoingMessage::TradeOccurredMessage(m) =>  {
+        //         debug!("TradeOccurredMessage Received");
+        //         ctx.text(serde_json::to_string(&m).unwrap());
+        //     }
+        //     OutgoingMessage::CancelOccurredMessage(m) => {
+        //         debug!("CancelOccurredMessage Received");
+        //         ctx.text(serde_json::to_string(&m).unwrap());
+        //     },
+        // }
     }
 }
 
@@ -450,9 +450,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                         ctx.stop();
                     }
                 }
-                None => {
-                    *curr_actor = Some(ctx.address())
-                }
+                None => *curr_actor = Some(ctx.address()),
             }
         }
         let message_queue = &mut self
@@ -503,23 +501,33 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                 let t_start_o = SystemTime::now();
                 // handle incoming JSON as usual.
 
-                // this is very expensive, should implement more rigid parsing. 
+                // this is very expensive, should implement more rigid parsing.
                 // TODO: switch to handling in fix/binary instead of json to improve speed
-                let incoming_message: IncomingMessage = serde_json::from_str(&msg.to_string()).unwrap();
+                let incoming_message: IncomingMessage =
+                    serde_json::from_str(&msg.to_string()).unwrap();
                 let connection_ip = self.connection_ip;
 
                 match incoming_message {
                     IncomingMessage::OrderRequest(order_req) => {
-                        let password_needed = self.global_account_state.index_ref(order_req.trader_id).lock().unwrap().password;
+                        let password_needed = self
+                            .global_account_state
+                            .index_ref(order_req.trader_id)
+                            .lock()
+                            .unwrap()
+                            .password;
                         if (password_needed != order_req.password) {
                             // Should return a standardized error message for the client instead of text
                             warn!("Invalid password for provided trader_id: {}", connection_ip);
                             ctx.text("invalid password for provided trader id.");
                         } else {
+                            let res = add_order(
+                                order_req,
+                                &self.global_orderbook_state,
+                                &self.global_account_state,
+                                &self.relay_server_addr,
+                                &self.order_counter,
+                            );
 
-                            let res =
-                                add_order(order_req, &self.global_orderbook_state, &self.global_account_state, &self.relay_server_addr, &self.order_counter);
-        
                             let t_elp = t_start_o.elapsed().unwrap();
                             debug!("secs for last order (inside match): {:?}", t_elp);
                             // elapsed is taking a non negligible time
@@ -534,37 +542,47 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                                 "time_elapsed from start: {:?}",
                                 usize::try_from(secs_elapsed.as_secs()).unwrap()
                             );
-                            debug!("total orders processed:{:?}", self.order_counter.load(std::sync::atomic::Ordering::SeqCst));
+                            debug!(
+                                "total orders processed:{:?}",
+                                self.order_counter.load(std::sync::atomic::Ordering::SeqCst)
+                            );
                             debug!(
                                 "orders/sec: {:?}",
-                                self.order_counter.load(std::sync::atomic::Ordering::SeqCst) / usize::try_from(secs_elapsed.as_secs()).unwrap()
+                                self.order_counter.load(std::sync::atomic::Ordering::SeqCst)
+                                    / usize::try_from(secs_elapsed.as_secs()).unwrap()
                             );
-        
+
                             // println!("res: {}", res);
                             // let msg = self.global_orderbook_state.index_ref(&t.symbol).lock().unwrap().to_owned();
                             // debug!("Issuing Async Msg");
                             // Broker::<SystemBroker>::issue_async(msg);
                             // debug!("Issued Async Msg");
                             // println!("{:?}", serde_json::to_string_pretty(&t));
-        
+
                             // measured @~14microseconds.
                             // for some reason goes up as more orders are added :(
 
                             ctx.text(serde_json::to_string(&res).unwrap())
-                            
                         }
                     }
                     IncomingMessage::CancelRequest(cancel_req) => {
-                        let password_needed = self.global_account_state.index_ref(cancel_req.trader_id).lock().unwrap().password;
+                        let password_needed = self
+                            .global_account_state
+                            .index_ref(cancel_req.trader_id)
+                            .lock()
+                            .unwrap()
+                            .password;
                         if (password_needed != cancel_req.password) {
                             warn!("Invalid password for provided trader_id: {}", connection_ip);
                             ctx.text("invalid password for provided trader id.");
                         } else {
-        
-        
-                            let res =
-                                cancel_order(cancel_req, &self.global_orderbook_state, &self.relay_server_addr, &self.order_counter);
-        
+                            let res = cancel_order(
+                                cancel_req,
+                                &self.global_orderbook_state,
+                                &self.relay_server_addr,
+                                &self.order_counter,
+                            );
+
                             let t_elp = t_start_o.elapsed().unwrap();
                             debug!("secs for last order (inside match): {:?}", t_elp);
                             // elapsed is taking a non negligible time
@@ -579,17 +597,21 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                                 "time_elapsed from start: {:?}",
                                 usize::try_from(secs_elapsed.as_secs()).unwrap()
                             );
-                            debug!("total orders processed:{:?}", self.order_counter.load(std::sync::atomic::Ordering::SeqCst));
+                            debug!(
+                                "total orders processed:{:?}",
+                                self.order_counter.load(std::sync::atomic::Ordering::SeqCst)
+                            );
                             debug!(
                                 "orders/sec: {:?}",
-                                self.order_counter.load(std::sync::atomic::Ordering::SeqCst) / usize::try_from(secs_elapsed.as_secs()).unwrap()
+                                self.order_counter.load(std::sync::atomic::Ordering::SeqCst)
+                                    / usize::try_from(secs_elapsed.as_secs()).unwrap()
                             );
 
                             ctx.text(serde_json::to_string(&res).unwrap());
-                    };
+                        };
+                    }
                 }
             }
-        }
 
             // Ping/Pong will be used to make sure the connection is still alive
             Ok(ws::Message::Ping(msg)) => {
@@ -606,12 +628,11 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
             // Close will close the socket
             Ok(ws::Message::Close(reason)) => {
                 let account_id = self.associated_id;
-                 self
-                .global_account_state
-                .index_ref(account_id)
-                .lock()
-                .unwrap()
-                .current_actor = None;
+                self.global_account_state
+                    .index_ref(account_id)
+                    .lock()
+                    .unwrap()
+                    .current_actor = None;
                 info!("Received close message, closing context.");
                 ctx.close(reason);
                 ctx.stop();

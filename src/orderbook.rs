@@ -1,5 +1,5 @@
 use crate::accounts;
-use crate::api_messages::{CancelIDNotFoundError, CancelRequest, OrderRequest};
+use crate::api_messages::{CancelIDNotFoundError, CancelOccurredMessage, CancelRequest, NewRestingOrderMessage, OrderRequest, OutgoingMessage, TradeOccurredMessage};
 use crate::config;
 use crate::config::TickerSymbol;
 use crate::connection_server;
@@ -130,7 +130,7 @@ impl Message for Fill {
     type Result = ();
 }
 impl OrderBook {
-    fn add_order_to_book(
+fn add_order_to_book(
         &mut self,
         new_order_request: OrderRequest,
         order_counter: &web::Data<Arc<AtomicUsize>>,
@@ -192,16 +192,13 @@ impl OrderBook {
                         let canceled_order = self.buy_side_limit_levels[cancel_request.price]
                                 .orders
                                 .remove(index);
-                        relay_server_addr.do_send(LimLevUpdate {
-                                level: cancel_request.price,
-                                total_order_vol: self.buy_side_limit_levels[cancel_request.price].total_volume,
-                                side: OrderType::Buy,
-                                symbol: self.symbol,
-                                timestamp: SystemTime::now()
-                                    .duration_since(UNIX_EPOCH)
-                                    .expect("System Time Error")
-                                    .subsec_nanos() as usize,
-                            });
+                        relay_server_addr.do_send(Arc::new(OutgoingMessage::CancelOccurredMessage(CancelOccurredMessage{
+                            side: OrderType::Buy,
+                            amount: canceled_order.amount,
+                            symbol: self.symbol,
+                            price: cancel_request.price
+                        })));
+                            
                         return Ok(canceled_order);
                     }
                     index += 1;
@@ -222,16 +219,12 @@ impl OrderBook {
                             self.sell_side_limit_levels[cancel_request.price]
                                 .orders
                                 .remove(index);
-                        relay_server_addr.do_send(LimLevUpdate {
-                                level: cancel_request.price,
-                                total_order_vol: self.buy_side_limit_levels[cancel_request.price].total_volume,
-                                side: OrderType::Buy,
+                            relay_server_addr.do_send(Arc::new(OutgoingMessage::CancelOccurredMessage(CancelOccurredMessage{
+                                side: OrderType::Sell,
+                                amount: canceled_order.amount,
                                 symbol: self.symbol,
-                                timestamp: SystemTime::now()
-                                    .duration_since(UNIX_EPOCH)
-                                    .expect("System Time Error")
-                                    .subsec_nanos() as usize,
-                            });
+                                price: cancel_request.price
+                            })));
                         return Ok(canceled_order);
                     }
                     index += 1;
@@ -315,6 +308,7 @@ impl OrderBook {
                             price: trade_price,
                             trade_time: 1,
                         }),
+                        relay_server_addr
                     );
 
                     sell_order.amount -= amount_to_be_traded;
@@ -341,17 +335,17 @@ impl OrderBook {
 
                     // order_index += 1;
                     // issue async is the culprit hanging up performance
-                    relay_server_addr.do_send(LimLevUpdate {
-                        level: current_price_level,
-                        total_order_vol: self.buy_side_limit_levels[current_price_level]
-                            .total_volume,
-                        side: OrderType::Buy,
-                        symbol: self.symbol,
-                        timestamp: SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .expect("System Time Error")
-                            .subsec_nanos() as usize,
-                    });
+                    // relay_server_addr.do_send(LimLevUpdate {
+                    //     level: current_price_level,
+                    //     total_order_vol: self.buy_side_limit_levels[current_price_level]
+                    //         .total_volume,
+                    //     side: OrderType::Buy,
+                    //     symbol: self.symbol,
+                    //     timestamp: SystemTime::now()
+                    //         .duration_since(UNIX_EPOCH)
+                    //         .expect("System Time Error")
+                    //         .subsec_nanos() as usize,
+                    // });
                 }
                 // overflow issues
                 current_price_level -= 1;
@@ -375,28 +369,27 @@ impl OrderBook {
             self.sell_side_limit_levels[sell_order.price].total_volume += sell_order.amount;
             // self.print_book_state();
             // issue async is the culprit hanging up performance
-            relay_server_addr.do_send(LimLevUpdate {
-                level: sell_order.price,
-                total_order_vol: self.sell_side_limit_levels[sell_order.price].total_volume,
+            
+            debug!("Sending NewRestingOrderMessage to relay server.");
+
+            relay_server_addr.do_send(Arc::new(OutgoingMessage::NewRestingOrderMessage(NewRestingOrderMessage{
                 side: OrderType::Sell,
-                symbol: self.symbol,
-                timestamp: SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .expect("System Time Error")
-                    .subsec_nanos() as usize,
-            });
-            debug!("Sending LimLevUpdate to relay server.");
-            relay_server_addr.do_send(LimLevUpdate {
-                level: sell_order.price,
-                total_order_vol: self.sell_side_limit_levels[sell_order.price].total_volume,
-                side: OrderType::Sell,
-                symbol: self.symbol,
-                timestamp: SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .expect("System Time Error")
-                    .subsec_nanos() as usize,
-            });
-            if (self.current_high_buy_price >= self.current_low_sell_price) {
+                amount: resting_order.amount,
+                symbol: resting_order.symbol,
+                price: resting_order.price
+            })));
+
+            // relay_server_addr.do_send(LimLevUpdate {
+            //     level: sell_order.price,
+            //     total_order_vol: self.sell_side_limit_levels[sell_order.price].total_volume,
+            //     side: OrderType::Sell,
+            //     symbol: self.symbol,
+            //     timestamp: SystemTime::now()
+            //         .duration_since(UNIX_EPOCH)
+            //         .expect("System Time Error")
+            //         .subsec_nanos() as usize,
+            // });
+            if self.current_high_buy_price >= self.current_low_sell_price {
                 warn!(
                     "Cross Occurred!: CHBP: {:?}, CLSP: {:?}",
                     self.current_high_buy_price, self.current_low_sell_price
@@ -468,6 +461,7 @@ impl OrderBook {
                             price: trade_price,
                             trade_time: 1,
                         }),
+                        relay_server_addr
                     );
 
                     // TODO: create "sell" function that can handle calls to allocate credit etc.
@@ -478,7 +472,6 @@ impl OrderBook {
                     self.sell_side_limit_levels[current_price_level].total_volume -=
                         amount_to_be_traded;
 
-                    debug!("Sending LimLevUpdate");
 
                     if self.sell_side_limit_levels[current_price_level].orders[0].amount == 0 {
                         self.sell_side_limit_levels[current_price_level]
@@ -486,19 +479,19 @@ impl OrderBook {
                             .remove(0);
                     }
                     // order_index += 1;
-
-                    // issue async is the culprit hanging up performance
-                    relay_server_addr.do_send(LimLevUpdate {
-                        level: current_price_level,
-                        total_order_vol: self.sell_side_limit_levels[current_price_level]
-                            .total_volume,
-                        side: OrderType::Sell,
-                        symbol: self.symbol,
-                        timestamp: SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .expect("System Time Error")
-                            .subsec_nanos() as usize,
-                    });
+                    // debug!("Sending LimLevUpdate");
+                    // // issue async is the culprit hanging up performance
+                    // relay_server_addr.do_send(LimLevUpdate {
+                    //     level: current_price_level,
+                    //     total_order_vol: self.sell_side_limit_levels[current_price_level]
+                    //         .total_volume,
+                    //     side: OrderType::Sell,
+                    //     symbol: self.symbol,
+                    //     timestamp: SystemTime::now()
+                    //         .duration_since(UNIX_EPOCH)
+                    //         .expect("System Time Error")
+                    //         .subsec_nanos() as usize,
+                    // });
                 }
 
                 current_price_level += 1;
@@ -532,18 +525,14 @@ impl OrderBook {
                 " total_volume on buy_side_limit_levels @ price {:?}: {:?}",
                 buy_order.price, self.buy_side_limit_levels[buy_order.price].total_volume
             );
-            debug!("Sending LimLevUpdate");
+            debug!("Sending NewRestingOrderMessage to relay server");
             // issue async is the culprit hanging up performance
-            relay_server_addr.do_send(LimLevUpdate {
-                level: buy_order.price,
-                total_order_vol: self.buy_side_limit_levels[buy_order.price].total_volume,
+            relay_server_addr.do_send(Arc::new(OutgoingMessage::NewRestingOrderMessage(NewRestingOrderMessage{
                 side: OrderType::Buy,
-                symbol: self.symbol,
-                timestamp: SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .expect("System Time Error")
-                    .subsec_nanos() as usize,
-            });
+                amount: resting_order.amount,
+                symbol: resting_order.symbol,
+                price: resting_order.price
+            })));
             debug!("resting_order: {:?}", resting_order);
             // Add check for remaining cross here
             if (self.current_high_buy_price >= self.current_low_sell_price) {
@@ -576,6 +565,7 @@ impl OrderBook {
         buy_trader: &Mutex<accounts::TraderAccount>,
         sell_trader: &Mutex<accounts::TraderAccount>,
         fill_event: Arc<Fill>,
+        relay_server_addr: &web::Data<Addr<connection_server::Server>>
     ) {
         // todo: this should acquire the lock for the the duration of the whole function (i.e. should take lock as argument instead of mutex)
 
@@ -590,8 +580,8 @@ impl OrderBook {
             .unwrap() += fill_event.amount;
         buy_trader.lock().unwrap().cents_balance -= cent_value;
         // only cloning arc, so not slow!
+        
         buy_trader.lock().unwrap().push_fill(fill_event.clone());
-
         // should send fill info to everyone?
         // would need lock on every account. Should send messages instead.
         // maybe use subscribers?
@@ -609,6 +599,16 @@ impl OrderBook {
         sell_trader.lock().unwrap().cents_balance += cent_value;
         sell_trader.lock().unwrap().net_cents_balance += cent_value;
         sell_trader.lock().unwrap().push_fill(fill_event.clone());
+
+        let trade_occurred_message = Arc::new(OutgoingMessage::TradeOccurredMessage(
+            TradeOccurredMessage {
+                amount: fill_event.amount, 
+                symbol: fill_event.symbol,
+                price: fill_event.price
+            }
+        ));
+
+        relay_server_addr.do_send(trade_occurred_message);
 
         debug!(
             "{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
