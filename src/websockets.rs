@@ -563,8 +563,14 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
 
                             // measured @~14microseconds.
                             // for some reason goes up as more orders are added :(
-
-                            ctx.text(serde_json::to_string(&res).unwrap())
+                            match &res {
+                                OrderPlaceResponse::OrderPlaceErrorMessage(msg) => {
+                                    ctx.text(serde_json::to_string(msg).unwrap());
+                                },
+                                OrderPlaceResponse::OrderConfirmMessage(msg) => {
+                                    ctx.text(serde_json::to_string(msg).unwrap());
+                                },
+                            }
                         }
                     }
                     IncomingMessage::CancelRequest(cancel_req) => {
