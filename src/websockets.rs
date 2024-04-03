@@ -608,8 +608,17 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                                 self.order_counter.load(std::sync::atomic::Ordering::SeqCst)
                                     / usize::try_from(secs_elapsed.as_secs()).unwrap()
                             );
+                            // need to match onto cancel response possibilities
 
-                            ctx.text(serde_json::to_string(&res).unwrap());
+                            match &res {
+                                crate::api_messages::OrderCancelResponse::CancelConfirmMessage(msg) => {
+                                    ctx.text(serde_json::to_string(msg).unwrap());
+                                },
+                                crate::api_messages::OrderCancelResponse::CancelErrorMessage(msg) => {
+                                    ctx.text(serde_json::to_string(msg).unwrap());
+                                }
+                            }
+                            
                         };
                     }
                 }
