@@ -814,8 +814,23 @@
 
             removeButton.textContent = 'Cancel';
             removeButton.onclick = function (i) {
-                item.remove();
-                console.log("Cancel order message");
+
+                const message = {
+                    MessageType: "CancelRequest",
+                    order_id: id,
+                    trader_id: username,
+                    price: price,
+                    symbol: name,
+                    side: type,
+                    password: password,
+                }
+    
+                console.log(message);
+                ws.send(JSON.stringify(
+                    message
+                ))
+                event.preventDefault();
+
             };
 
 
@@ -1226,7 +1241,7 @@
             document.getElementById("connection").textContent = "Not Connected 🔴";
         };
 /*
-       **** For testing ****
+  //     **** For testing ****
 
         // receive a message from the server
         function tester(testpacket) {
@@ -1408,14 +1423,14 @@
             }
         }
 
-        tester(orderconfirm);
+
         tester(orderconvert);
         tester(errortest);
         tester(orderconvert2);
         tester(sell1);
         tester(ordercancel);
-*/
 
+*/
     </script>
 </body>
 </html>
