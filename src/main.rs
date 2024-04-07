@@ -43,6 +43,7 @@ use config::AssetBalances;
 use config::GlobalOrderBookState;
 use config::GlobalAccountState;
 
+use rev_lines::RevLines;
 
 #[derive(Debug, Serialize, Deserialize)]
 struct GlobalState {    
@@ -51,11 +52,29 @@ struct GlobalState {
 }
 
 impl GlobalState {
-    fn dump_state(self, log_file: fs::File){
-        println!("{:?}", json!(self))
+    fn dump_state(self){
+        info!("{:?}", json!(self))
     }
-    fn load_state(self, log_file: fs::File){
-        
+    fn load_state(self, log_file: fs::File) -> Option<GlobalState> {
+        // todo: convert to Result<> instead of Option<>
+        // search from bottom up until we find a state dump, take that as ground truth
+        let rev_lines = RevLines::new(log_file);
+
+        for line in rev_lines {
+            let line_u = line.unwrap();
+            if &line_u[0..50] == " INFO  main                    > Data(GlobalState" {
+                println!("Found state dump!");
+                let len = &line_u.len();
+                let gs:GlobalState = serde_json::from_str(&line_u[39..len-1]).unwrap();
+                // get line number of last state dump
+
+                // iterate over all successful orders/cancels since last state dump, calling on add_order() or cancel_order()
+
+                // return the final reconstructed global state
+                return Some(gs);
+            }
+        }
+        None
     }
 }
 
@@ -125,14 +144,14 @@ async fn main() -> std::io::Result<()> {
         global_account_state: global_account_state
     });
 
-    
-
+    // logging initial global state as starting place to reconstruct state from later
+    info!("{:?}", global_state);
 
     // handlers discriminate based on type, so can safely pass both pieces of state here
     HttpServer::new(move || {
         App::new().service(
             web::scope("/orders")
-            .app_data(global_state.clone())         
+            .app_data(global_state.clone())
             // .app_data(global_orderbook_state.clone()) // <- register the created data
             // .app_data(global_account_state.clone()) // <- register the created data
             .app_data(web::Data::new(relay_server.clone()))
