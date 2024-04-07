@@ -18,16 +18,18 @@ max_price = 1000
 # todo: implement flat, normal, bimodal, delta, smile and see what is the most fun
 def generate_gaussian(min, max, mean, var):
     out_arr =  np.arange(min + 1, max - 1)
-    norm_pdf = lambda index: 1/((2 * 3.1415 * var)**0.5) * np.exp(-0.5 *)
+    # norm_pdf = lambda index: 1/((2 * 3.1415 * var)**0.5) * np.exp(-0.5 *)
     return 
 
 
 async def tail_file_and_send_message(file_path, websocket_uri):
     async def send_message(price):
+        # because we dont allow shorts (or do so via inversed products)
+        # I dont think we need sell orders for price enforcement?
         print("sending buy order at price")
         jsonreq = {
             'OrderType': "Buy",
-            'Amount': args.symbol,
+            'Amount': args.amt,
             'Price': price,
             'Symbol': args.symbol,
             'TraderId': "Price_Enforcer",

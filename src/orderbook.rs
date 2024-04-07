@@ -71,7 +71,7 @@ pub enum OrderType {
 //     }
 // }
 
-#[derive(Debug, Message, Clone, Serialize)]
+#[derive(Debug, Message, Clone, Serialize, Deserialize)]
 #[rtype(result = "()")]
 pub struct OrderBook {
     /// Struct representing a double sided order book for a single product.
@@ -88,19 +88,19 @@ pub struct OrderBook {
     pub running_orders_total: usize,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct LimitLevel {
     /// Struct representing one price level in the orderbook, containing a vector of Orders at this price
     // TODO: add total_volume to this so we dont have to sum every time we are interested in it.
     price: Price,
     // this is a stopgap measure to deal with sending out full orderbooks on connect.
     // TODO: write own serializer
-    #[serde(skip_serializing)]
+    // #[serde(skip_serializing)]
     orders: Vec<Order>,
     total_volume: usize,
 }
 
-#[derive(Debug, Clone, Serialize, Copy)]
+#[derive(Debug, Clone, Serialize, Copy, Deserialize)]
 pub struct Order {
     /// Struct representing an existing order in the order book
     pub order_id: OrderID,
@@ -240,7 +240,7 @@ fn add_order_to_book(
     pub fn handle_incoming_order_request(
         &mut self,
         new_order_request: OrderRequest,
-        accounts_data: &web::Data<config::GlobalAccountState>,
+        accounts_data: &crate::config::GlobalAccountState,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
         order_counter: &web::Data<Arc<AtomicUsize>>,
     ) -> Result<Order, Box<dyn std::error::Error>> {
@@ -262,7 +262,7 @@ fn add_order_to_book(
     fn handle_incoming_sell(
         &mut self,
         mut sell_order: OrderRequest,
-        accounts_data: &web::Data<config::GlobalAccountState>,
+        accounts_data: &crate::config::GlobalAccountState,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
         order_counter: &web::Data<Arc<AtomicUsize>>,
     ) -> Result<Order, Box<dyn std::error::Error>> {
@@ -389,17 +389,17 @@ fn add_order_to_book(
             //         .expect("System Time Error")
             //         .subsec_nanos() as usize,
             // });
-            if self.current_high_buy_price >= self.current_low_sell_price {
-                warn!(
-                    "Cross Occurred!: CHBP: {:?}, CLSP: {:?}",
-                    self.current_high_buy_price, self.current_low_sell_price
-                )
-            } else {
-                warn!(
-                    "No Cross Occurred: CHBP: {:?}, CLSP: {:?}",
-                    self.current_high_buy_price, self.current_low_sell_price
-                )
-            };
+            // if self.current_high_buy_price >= self.current_low_sell_price {
+            //     warn!(
+            //         "Cross Occurred!: CHBP: {:?}, CLSP: {:?}",
+            //         self.current_high_buy_price, self.current_low_sell_price
+            //     )
+            // } else {
+            //     warn!(
+            //         "No Cross Occurred: CHBP: {:?}, CLSP: {:?}",
+            //         self.current_high_buy_price, self.current_low_sell_price
+            //     )
+            // };
             return Ok(resting_order);
         } else {
             // self.print_book_state();
@@ -416,7 +416,7 @@ fn add_order_to_book(
     fn handle_incoming_buy(
         &mut self,
         mut buy_order: OrderRequest,
-        accounts_data: &web::Data<config::GlobalAccountState>,
+        accounts_data: &crate::config::GlobalAccountState,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
         order_counter: &web::Data<Arc<AtomicUsize>>,
     ) -> Result<Order, Box<dyn std::error::Error>> {
@@ -535,17 +535,17 @@ fn add_order_to_book(
             })));
             debug!("resting_order: {:?}", resting_order);
             // Add check for remaining cross here
-            if (self.current_high_buy_price >= self.current_low_sell_price) {
-                warn!(
-                    "Cross Occurred!: CHBP: {:?}, CLSP: {:?}",
-                    self.current_high_buy_price, self.current_low_sell_price
-                )
-            } else {
-                warn!(
-                    "No Cross Occurred: CHBP: {:?}, CLSP: {:?}",
-                    self.current_high_buy_price, self.current_low_sell_price
-                )
-            };
+            // if (self.current_high_buy_price >= self.current_low_sell_price) {
+            //     warn!(
+            //         "Cross Occurred!: CHBP: {:?}, CLSP: {:?}",
+            //         self.current_high_buy_price, self.current_low_sell_price
+            //     )
+            // } else {
+            //     warn!(
+            //         "No Cross Occurred: CHBP: {:?}, CLSP: {:?}",
+            //         self.current_high_buy_price, self.current_low_sell_price
+            //     )
+            // };
             return Ok(resting_order);
         } else {
             // order was filled before it rested on the book, order_id = 0 is special

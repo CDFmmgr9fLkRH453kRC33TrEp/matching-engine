@@ -52,7 +52,7 @@ use crate::config::TraderIp;
 pub use crate::orderbook::quickstart_order_book;
 pub use crate::orderbook::OrderBook;
 pub use crate::orderbook::OrderType;
-use crate::{config, orderbook};
+use crate::{config, orderbook, GlobalState};
 
 use crate::config::AssetBalances;
 use crate::config::TickerSymbol;
@@ -72,8 +72,8 @@ enum IncomingMessage {
 
 fn add_order<'a>(
     order_request: OrderRequest,
-    data: &web::Data<crate::config::GlobalOrderBookState>,
-    accounts_data: &web::Data<crate::config::GlobalAccountState>,
+    data: &crate::config::GlobalOrderBookState,
+    accounts_data: &crate::config::GlobalAccountState,
     relay_server_addr: &web::Data<Addr<crate::connection_server::Server>>,
     order_counter: &web::Data<Arc<AtomicUsize>>,
 ) -> OrderPlaceResponse<'a> {
@@ -198,7 +198,7 @@ fn add_order<'a>(
 
 fn cancel_order<'a>(
     cancel_request: CancelRequest,
-    data: &web::Data<crate::config::GlobalOrderBookState>,
+    data: &crate::config::GlobalOrderBookState,
     relay_server_addr: &web::Data<Addr<crate::connection_server::Server>>,
     order_counter: &web::Data<Arc<AtomicUsize>>,
 ) -> crate::api_messages::OrderCancelResponse<'a> {
@@ -235,8 +235,9 @@ pub struct MyWebSocketActor {
     connection_ip: TraderIp,
     associated_id: TraderId,
     hb: Instant,
-    global_account_state: web::Data<crate::config::GlobalAccountState>,
-    global_orderbook_state: web::Data<crate::config::GlobalOrderBookState>,
+    global_state: web::Data<GlobalState>,
+    // global_account_state: crate::config::GlobalAccountState,
+    // global_orderbook_state: crate::config::GlobalOrderBookState,
     // for testing.
     start_time: web::Data<SystemTime>,
     t_orders: usize,
@@ -261,8 +262,9 @@ impl MyWebSocketActor {
 pub async fn websocket(
     req: HttpRequest,
     stream: web::Payload,
-    orderbook_data: web::Data<crate::config::GlobalOrderBookState>,
-    accounts_data: web::Data<crate::config::GlobalAccountState>,
+    // orderbook_data: crate::config::GlobalOrderBookState,
+    // accounts_data: crate::config::GlobalAccountState,
+    state_data: web::Data<GlobalState>,
     start_time: web::Data<SystemTime>,
     relay_server_addr: web::Data<Addr<crate::connection_server::Server>>,
     order_counter: web::Data<Arc<AtomicUsize>>,
@@ -287,8 +289,9 @@ pub async fn websocket(
             )
             .unwrap(),
             hb: Instant::now(),
-            global_account_state: accounts_data.clone(),
-            global_orderbook_state: orderbook_data.clone(),
+            global_state : state_data.clone(),
+            // global_account_state: accounts_data.clone(),
+            // global_orderbook_state: orderbook_data.clone(),
             start_time: start_time.clone(),
             t_orders: 0,
             relay_server_addr: relay_server_addr.clone(),
@@ -317,7 +320,7 @@ impl Actor for MyWebSocketActor {
     fn stopped(&mut self, ctx: &mut Self::Context) {
         let account_id = self.associated_id;
         let curr_actor = &mut self
-            .global_account_state
+             .global_state.global_account_state
             .index_ref(account_id)
             .lock()
             .unwrap()
@@ -425,14 +428,14 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
     }
 
     fn started(&mut self, ctx: &mut Self::Context) {
-        // Broker::<SystemBroker>::issue_async(self.global_orderbook_state);
+        // Broker::<SystemBroker>::issue_async(self.global_state.global_orderbook_state);
         let connection_ip = self.connection_ip;
         let account_id = self.associated_id;
 
         debug!("Trader with id {:?} connected.", account_id);
         {
             let curr_actor = &mut self
-                .global_account_state
+                 .global_state.global_account_state
                 .index_ref(account_id)
                 .lock()
                 .unwrap()
@@ -456,7 +459,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
 
         
         let message_queue = &mut self
-            .global_account_state
+             .global_state.global_account_state
             .index_ref(account_id)
             .lock()
             .unwrap()
@@ -484,7 +487,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
             // should send global orderbook state.
         }
         debug!("Sending serialized orderbook state.");
-        ctx.text(serde_json::to_string(&self.global_orderbook_state).unwrap());
+        ctx.text(serde_json::to_string(&self.global_state.global_orderbook_state).unwrap());
     }
     // finished() function removes the trader account's actor addr
 
@@ -512,7 +515,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                 match incoming_message {
                     IncomingMessage::OrderRequest(order_req) => {
                         let password_needed = self
-                            .global_account_state
+                             .global_state.global_account_state
                             .index_ref(order_req.trader_id)
                             .lock()
                             .unwrap()
@@ -524,8 +527,8 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                         } else {
                             let res = add_order(
                                 order_req,
-                                &self.global_orderbook_state,
-                                &self.global_account_state,
+                                &self.global_state.global_orderbook_state,
+                                &self .global_state.global_account_state,
                                 &self.relay_server_addr,
                                 &self.order_counter,
                             );
@@ -555,7 +558,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                             );
 
                             // println!("res: {}", res);
-                            // let msg = self.global_orderbook_state.index_ref(&t.symbol).lock().unwrap().to_owned();
+                            // let msg = self.global_state.global_orderbook_state.index_ref(&t.symbol).lock().unwrap().to_owned();
                             // debug!("Issuing Async Msg");
                             // Broker::<SystemBroker>::issue_async(msg);
                             // debug!("Issued Async Msg");
@@ -568,6 +571,10 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                                     ctx.text(serde_json::to_string(msg).unwrap());
                                 },
                                 OrderPlaceResponse::OrderConfirmMessage(msg) => {
+                                    
+                                    // required for logging/state recovery in case of crashes
+                                    info!("{:?}", order_req);
+                                    
                                     ctx.text(serde_json::to_string(msg).unwrap());
                                 },
                             }
@@ -575,7 +582,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                     }
                     IncomingMessage::CancelRequest(cancel_req) => {
                         let password_needed = self
-                            .global_account_state
+                             .global_state.global_account_state
                             .index_ref(cancel_req.trader_id)
                             .lock()
                             .unwrap()
@@ -586,7 +593,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                         } else {
                             let res = cancel_order(
                                 cancel_req,
-                                &self.global_orderbook_state,
+                                &self.global_state.global_orderbook_state,
                                 &self.relay_server_addr,
                                 &self.order_counter,
                             );
@@ -618,6 +625,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
 
                             match &res {
                                 crate::api_messages::OrderCancelResponse::CancelConfirmMessage(msg) => {
+                                    // required for logging/state recovery in case of crashes
+                                    info!("{:?}", cancel_req);
+                                    
                                     ctx.text(serde_json::to_string(msg).unwrap());
                                 },
                                 crate::api_messages::OrderCancelResponse::CancelErrorMessage(msg) => {
@@ -645,7 +655,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
             // Close will close the socket
             Ok(ws::Message::Close(reason)) => {
                 let account_id = self.associated_id;
-                self.global_account_state
+                self .global_state.global_account_state
                     .index_ref(account_id)
                     .lock()
                     .unwrap()

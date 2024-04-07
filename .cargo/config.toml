@@ -1,6 +1,6 @@
 # this is the one which matters!
 [env]
-RUST_LOG = { value = "debug", force = true }
+RUST_LOG = { value = "info", force = true }
 GRAFANAIP = "127.16.123.0"
 GRAFANAPOLLDUR = "2"
 # CARGO_LOG = { value = "info", force = true }

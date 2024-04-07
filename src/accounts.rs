@@ -1,3 +1,5 @@
+use serde::Deserialize;
+use serde::Serialize;
 use uuid::Uuid;
 use crate::orderbook;
 use crate::config;
@@ -10,11 +12,12 @@ use std::sync::Arc;
 use queues;
 
 pub type Password = [char; 4];
-
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TraderAccount {
     pub trader_id: config::TraderId,
     pub cents_balance: usize,
     // pub trader_ip: config::TraderIp,
+    #[serde(skip)]
     pub current_actor: Option<Addr<websockets::MyWebSocketActor>>,
     pub password: Password,
     // pub websocket actor: actix addr
@@ -31,6 +34,7 @@ pub struct TraderAccount {
     // in cents, equal to total of owned cents minus total value of outstanding buy orders
 
     // consider changing to Buffer instead of Queue to know size
+    #[serde(skip)]
     pub message_backup: queues::Queue<Arc<orderbook::Fill>>,
 
     pub net_cents_balance: usize,

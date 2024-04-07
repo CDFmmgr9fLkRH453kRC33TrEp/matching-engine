@@ -99,7 +99,7 @@ macro_rules! generate_accounts_enum {
 
 macro_rules! generate_account_balances_struct {
     ([$($name:ident),*]) => {
-        #[derive(Debug)]
+        #[derive(Debug, Serialize, Deserialize)]
         pub struct AssetBalances {
             $($name: Mutex<usize>, )*
         }    
@@ -123,7 +123,7 @@ macro_rules! generate_account_balances_struct {
 
 macro_rules! generate_global_state {
     ([$($name:ident),*], [$($account_id:ident),*]) => {
-        #[derive(Debug, Serialize)]
+        #[derive(Debug, Serialize, Deserialize)]
         pub struct GlobalOrderBookState {
             $(pub $name: Mutex<crate::orderbook::OrderBook>, )*
         }
@@ -136,6 +136,7 @@ macro_rules! generate_global_state {
             }
         }
         
+        #[derive(Debug, Serialize, Deserialize)]
         pub struct GlobalAccountState {
             $(pub $account_id: Mutex<crate::accounts::TraderAccount>, )*
         }
