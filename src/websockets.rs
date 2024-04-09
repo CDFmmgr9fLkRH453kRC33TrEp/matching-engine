@@ -70,7 +70,7 @@ enum IncomingMessage {
     CancelRequest(CancelRequest),
 }
 
-fn add_order<'a>(
+pub fn add_order<'a>(
     order_request: OrderRequest,
     data: &crate::config::GlobalOrderBookState,
     accounts_data: &crate::config::GlobalAccountState,
@@ -196,9 +196,10 @@ fn add_order<'a>(
     }
 }
 
-fn cancel_order<'a>(
+pub fn cancel_order<'a>(
     cancel_request: CancelRequest,
     data: &crate::config::GlobalOrderBookState,
+    accounts_data: &crate::config::GlobalAccountState,
     relay_server_addr: &web::Data<Addr<crate::connection_server::Server>>,
     order_counter: &web::Data<Arc<AtomicUsize>>,
 ) -> crate::api_messages::OrderCancelResponse<'a> {
@@ -213,9 +214,32 @@ fn cancel_order<'a>(
     // instead of returning none, this should return Result and I can catch it here to propagate up actix framework
     match order {
         Ok(inner) => {
+            // handles freeing up credit limits used by order
+            match inner.order_type {
+                OrderType::Buy => {
+                    // increase available funds
+                    accounts_data
+                        .index_ref(inner.trader_id)
+                        .lock()
+                        .unwrap()
+                        .net_cents_balance += inner.amount * inner.price;
+                }
+                OrderType::Sell => {
+                    // increase available assets
+                    // need to dereference because each asset balance is a separate mutex (should this be changed?)
+                    *accounts_data
+                        .index_ref(inner.trader_id)
+                        .lock()
+                        .unwrap()
+                        .net_asset_balances
+                        .index_ref(&inner.symbol)
+                        .lock()
+                        .unwrap() += inner.amount
+                }
+            }
             return crate::api_messages::OrderCancelResponse::CancelConfirmMessage(
                 CancelConfirmMessage { order_info: inner },
-            )
+            );
         }
         Err(err) => {
             return crate::api_messages::OrderCancelResponse::CancelErrorMessage(
@@ -273,7 +297,12 @@ pub async fn websocket(
 
     log::info!(
         "New websocket connection with peer_addr: {:?}, id: {:?}",
-        conninfo.peer_addr(), req.headers().get("Sec-WebSocket-Protocol").unwrap().to_str().unwrap()
+        conninfo.peer_addr(),
+        req.headers()
+            .get("Sec-WebSocket-Protocol")
+            .unwrap()
+            .to_str()
+            .unwrap()
     );
 
     ws::start(
@@ -285,11 +314,15 @@ pub async fn websocket(
                 .parse()
                 .unwrap(),
             associated_id: <TraderId as std::str::FromStr>::from_str(
-                req.headers().get("Sec-WebSocket-Protocol").unwrap().to_str().unwrap(),
+                req.headers()
+                    .get("Sec-WebSocket-Protocol")
+                    .unwrap()
+                    .to_str()
+                    .unwrap(),
             )
             .unwrap(),
             hb: Instant::now(),
-            global_state : state_data.clone(),
+            global_state: state_data.clone(),
             // global_account_state: accounts_data.clone(),
             // global_orderbook_state: orderbook_data.clone(),
             start_time: start_time.clone(),
@@ -320,7 +353,8 @@ impl Actor for MyWebSocketActor {
     fn stopped(&mut self, ctx: &mut Self::Context) {
         let account_id = self.associated_id;
         let curr_actor = &mut self
-             .global_state.global_account_state
+            .global_state
+            .global_account_state
             .index_ref(account_id)
             .lock()
             .unwrap()
@@ -351,7 +385,7 @@ impl Actor for MyWebSocketActor {
 /// Define handler for `Fill` message
 impl Handler<Arc<orderbook::Fill>> for MyWebSocketActor {
     type Result = ();
-
+    // superseded by TradeOccurredMessage, should be dead code
     // should implement api_messages.rs spec
 
     fn handle(&mut self, msg: Arc<orderbook::Fill>, ctx: &mut Self::Context) {
@@ -435,7 +469,8 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
         debug!("Trader with id {:?} connected.", account_id);
         {
             let curr_actor = &mut self
-                 .global_state.global_account_state
+                .global_state
+                .global_account_state
                 .index_ref(account_id)
                 .lock()
                 .unwrap()
@@ -457,9 +492,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
             }
         }
 
-        
         let message_queue = &mut self
-             .global_state.global_account_state
+            .global_state
+            .global_account_state
             .index_ref(account_id)
             .lock()
             .unwrap()
@@ -515,7 +550,8 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                 match incoming_message {
                     IncomingMessage::OrderRequest(order_req) => {
                         let password_needed = self
-                             .global_state.global_account_state
+                            .global_state
+                            .global_account_state
                             .index_ref(order_req.trader_id)
                             .lock()
                             .unwrap()
@@ -528,7 +564,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                             let res = add_order(
                                 order_req,
                                 &self.global_state.global_orderbook_state,
-                                &self .global_state.global_account_state,
+                                &self.global_state.global_account_state,
                                 &self.relay_server_addr,
                                 &self.order_counter,
                             );
@@ -569,20 +605,20 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                             match &res {
                                 OrderPlaceResponse::OrderPlaceErrorMessage(msg) => {
                                     ctx.text(serde_json::to_string(msg).unwrap());
-                                },
+                                }
                                 OrderPlaceResponse::OrderConfirmMessage(msg) => {
-                                    
                                     // required for logging/state recovery in case of crashes
-                                    info!("{:?}", order_req);
-                                    
+                                    info!("ORDER DUMP: {}", serde_json::to_string(&order_req).unwrap());
+
                                     ctx.text(serde_json::to_string(msg).unwrap());
-                                },
+                                }
                             }
                         }
                     }
                     IncomingMessage::CancelRequest(cancel_req) => {
                         let password_needed = self
-                             .global_state.global_account_state
+                            .global_state
+                            .global_account_state
                             .index_ref(cancel_req.trader_id)
                             .lock()
                             .unwrap()
@@ -594,6 +630,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                             let res = cancel_order(
                                 cancel_req,
                                 &self.global_state.global_orderbook_state,
+                                &self.global_state.global_account_state,
                                 &self.relay_server_addr,
                                 &self.order_counter,
                             );
@@ -624,17 +661,20 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                             // need to match onto cancel response possibilities
 
                             match &res {
-                                crate::api_messages::OrderCancelResponse::CancelConfirmMessage(msg) => {
+                                crate::api_messages::OrderCancelResponse::CancelConfirmMessage(
+                                    msg,
+                                ) => {
                                     // required for logging/state recovery in case of crashes
-                                    info!("{:?}", cancel_req);
-                                    
+                                    info!("CANCEL DUMP: {}", serde_json::to_string(&cancel_req).unwrap());
+
                                     ctx.text(serde_json::to_string(msg).unwrap());
-                                },
-                                crate::api_messages::OrderCancelResponse::CancelErrorMessage(msg) => {
+                                }
+                                crate::api_messages::OrderCancelResponse::CancelErrorMessage(
+                                    msg,
+                                ) => {
                                     ctx.text(serde_json::to_string(msg).unwrap());
                                 }
                             }
-                            
                         };
                     }
                 }
@@ -655,7 +695,8 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
             // Close will close the socket
             Ok(ws::Message::Close(reason)) => {
                 let account_id = self.associated_id;
-                self .global_state.global_account_state
+                self.global_state
+                    .global_account_state
                     .index_ref(account_id)
                     .lock()
                     .unwrap()

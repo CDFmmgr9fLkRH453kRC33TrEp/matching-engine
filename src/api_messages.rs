@@ -12,9 +12,9 @@ use crate::orderbook::Price;
 use derive_more::Error;
 
 // Client -> Server Messages
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "MessageType")]
-enum IncomingMessage {
+pub enum IncomingMessage {
     OrderRequest(OrderRequest),
     CancelRequest(CancelRequest),
 }

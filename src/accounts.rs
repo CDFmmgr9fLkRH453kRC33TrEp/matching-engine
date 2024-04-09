@@ -17,7 +17,7 @@ pub struct TraderAccount {
     pub trader_id: config::TraderId,
     pub cents_balance: usize,
     // pub trader_ip: config::TraderIp,
-    #[serde(skip)]
+    #[serde(skip, default="ret_none")]
     pub current_actor: Option<Addr<websockets::MyWebSocketActor>>,
     pub password: Password,
     // pub websocket actor: actix addr
@@ -35,6 +35,7 @@ pub struct TraderAccount {
 
     // consider changing to Buffer instead of Queue to know size
     #[serde(skip)]
+    #[serde(default = "empty_message_queue")]
     pub message_backup: queues::Queue<Arc<orderbook::Fill>>,
 
     pub net_cents_balance: usize,
@@ -44,6 +45,16 @@ pub struct TraderAccount {
     // in shares, equal to the total of owned shares minus the total of outstanding sell orders' shares (i.e. should be \geq 0)
     pub net_asset_balances: config::AssetBalances,
 }
+
+fn ret_none() -> Option<Addr<websockets::MyWebSocketActor>> {
+    None
+}
+
+
+fn empty_message_queue() -> queues::Queue<Arc<orderbook::Fill>> {
+    queues::Queue::new()
+}
+
 
 impl TraderAccount {
     pub fn push_fill(&mut self, fill_event: Arc<orderbook::Fill>) {
