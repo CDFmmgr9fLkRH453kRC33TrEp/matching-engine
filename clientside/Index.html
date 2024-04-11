@@ -756,7 +756,7 @@
             }
         }
 
-        function convertOrder(vol, id) {
+        function convertOrder(vol, id, price) {
             let myEle = document.getElementById(id);
             let newvol = parseInt(myEle.getElementsByClassName("vol")[0].textContent) - vol;
             
@@ -765,7 +765,6 @@
             } else {
                 myEle.getElementsByClassName("vol")[0].textContent = newvol;
             }
-            let price = parseFloat(myEle.getElementsByClassName('price')[0].textContent.substring(1));
             let name = myEle.getElementsByClassName('symbol')[0].textContent;
             let type = myEle.getElementsByClassName('type')[0].textContent;
             if (type == "Buy") {
@@ -1206,9 +1205,7 @@
                 const oi = packet[order_info];
                 addOrder(oi[symbol], oi[amount], oi[price], oi[order_type], oi[order_id]);
             } else if (msg_type == "OrderFillMessage") {
-                //This is gonna cause balance discrepency between client and server
-                //since we don't know the exact execution price
-                convertOrder(packet[amount_filled], packet[order_id])
+                convertOrder(packet[amount_filled], packet[order_id], packet[price])
             } else if (msg_type == "CancelConfirmMessage") {
                 const oi = packet[order_info];
                 cancelOrder(oi[symbol], oi[amount], oi[price], oi[order_type], oi[order_id]);
