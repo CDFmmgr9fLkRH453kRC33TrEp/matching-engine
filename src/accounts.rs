@@ -1,13 +1,15 @@
+use crate::config;
+use crate::orderbook;
+use crate::orderbook::Order;
+use crate::websockets;
+use actix::Addr;
+use config::AssetBalances;
+use queues::IsQueue;
 use serde::Deserialize;
 use serde::Serialize;
-use uuid::Uuid;
-use crate::orderbook;
-use crate::config;
-use crate::websockets;
-use config::AssetBalances;
-use actix::Addr;
-use queues::IsQueue;
 use std::sync::Arc;
+use std::vec;
+use uuid::Uuid;
 
 use queues;
 
@@ -17,7 +19,7 @@ pub struct TraderAccount {
     pub trader_id: config::TraderId,
     pub cents_balance: usize,
     // pub trader_ip: config::TraderIp,
-    #[serde(skip, default="ret_none")]
+    #[serde(skip, default = "ret_none")]
     pub current_actor: Option<Addr<websockets::MyWebSocketActor>>,
     pub password: Password,
     // pub websocket actor: actix addr
@@ -38,6 +40,9 @@ pub struct TraderAccount {
     #[serde(default = "empty_message_queue")]
     pub message_backup: queues::Queue<Arc<crate::api_messages::OrderFillMessage>>,
 
+    // all active orders for syncing purposes. Maybe should be organized by symbol/price level to allow for quicker removal/access?
+    pub active_orders: Vec<Order>,
+
     pub net_cents_balance: usize,
     // asset_balances, net_asset_balances updated on fill event, and so should be current
     // in asset lots
@@ -54,29 +59,35 @@ fn empty_message_queue() -> queues::Queue<Arc<crate::api_messages::OrderFillMess
     queues::Queue::new()
 }
 
-
 impl TraderAccount {
     pub fn push_fill(&mut self, fill_event: Arc<crate::api_messages::OrderFillMessage>) {
         // maybe spawn async thread?
         match &self.current_actor {
             None => {
                 self.message_backup.add(fill_event).unwrap();
-            },
-            Some(addr) =>{
+            }
+            Some(addr) => {
                 // todo: slow clone, switch paths?
                 // todo: switch to cloning RC so not so expensive.
-                // should only be unwrapped when sent. 
+                // should only be unwrapped when sent.
                 match addr.try_send(fill_event.clone()) {
-                    Ok(_) => {()},
-                    Err(E) => {self.message_backup.add(fill_event).unwrap(); ()}
+                    Ok(_) => (),
+                    Err(E) => {
+                        self.message_backup.add(fill_event).unwrap();
+                        ()
+                    }
                 }
-            },
+            }
         }
     }
 }
 
-pub fn quickstart_trader_account (trader_id: config::TraderId, cents_balance: usize, password: Password) -> TraderAccount {
-    TraderAccount {        
+pub fn quickstart_trader_account(
+    trader_id: config::TraderId,
+    cents_balance: usize,
+    password: Password,
+) -> TraderAccount {
+    TraderAccount {
         trader_id: trader_id,
         // trader_ip: trader_ip,
         cents_balance: cents_balance,
@@ -88,6 +99,8 @@ pub fn quickstart_trader_account (trader_id: config::TraderId, cents_balance: us
         // in cents
         net_asset_balances: config::AssetBalances::new(),
         current_actor: None,
-        password: password
+        password: password,
+        // exact initial capacity should be abstracted to config file
+        active_orders: Vec::with_capacity(10000),
     }
 }

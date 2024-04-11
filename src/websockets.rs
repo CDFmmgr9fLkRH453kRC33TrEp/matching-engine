@@ -22,7 +22,7 @@ use actix_broker::{ArbiterBroker, Broker, BrokerIssue, BrokerSubscribe, SystemBr
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(4);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 use crate::api_messages::{
-    CancelConfirmMessage, CancelErrorMessage, CancelRequest, OrderConfirmMessage, OrderFillMessage, OrderPlaceErrorMessage, OrderPlaceResponse, OrderRequest, OutgoingMessage, TradeOccurredMessage
+    CancelConfirmMessage, CancelErrorMessage, CancelRequest, IncomingMessage, OrderConfirmMessage, OrderFillMessage, OrderPlaceErrorMessage, OrderPlaceResponse, OrderRequest, OutgoingMessage, TradeOccurredMessage
 };
 use crate::message_types::{CloseMessage, OpenMessage};
 use crate::orderbook::{Fill, TraderId};
@@ -60,13 +60,6 @@ use crate::config::GlobalOrderBookState;
 
 use ::serde::{de, Deserialize, Serialize};
 
-// use crate::parser;
-#[derive(Serialize, Deserialize)]
-#[serde(tag = "MessageType")]
-enum IncomingMessage {
-    OrderRequest(OrderRequest),
-    CancelRequest(CancelRequest),
-}
 
 pub fn add_order<'a>(
     order_request: OrderRequest,
@@ -213,7 +206,7 @@ pub fn cancel_order<'a>(
         .index_ref(symbol)
         .lock()
         .unwrap()
-        .handle_incoming_cancel_request(cancel_request_inner, order_counter, relay_server_addr);
+        .handle_incoming_cancel_request(cancel_request_inner, order_counter, relay_server_addr, accounts_data);
     // todo: add proper error handling/messaging
     // instead of returning none, this should return Result and I can catch it here to propagate up actix framework
     match order {
@@ -541,6 +534,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                         if (password_needed != order_req.password) {
                             // Should return a standardized error message for the client instead of text
                             warn!("Invalid password for provided trader_id: {}", connection_ip);
+                            // This should be a proper error
                             ctx.text("invalid password for provided trader id.");
                         } else {
                             let res = add_order(
@@ -607,6 +601,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                             .password;
                         if (password_needed != cancel_req.password) {
                             warn!("Invalid password for provided trader_id: {}", connection_ip);
+                            // This should be a proper error
                             ctx.text("invalid password for provided trader id.");
                         } else {
                             let res = cancel_order(
@@ -659,6 +654,26 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                             }
                         };
                     }
+                    IncomingMessage::AccountInfoRequest(account_info_request) => {                        
+                        let password_needed = self
+                            .global_state
+                            .global_account_state
+                            .index_ref(account_info_request.trader_id)
+                            .lock()
+                            .unwrap()
+                            .password;
+                        if (password_needed != account_info_request.password) {
+                            warn!("Invalid password for provided trader_id: {}", connection_ip);
+                            // This should be a proper error
+                            ctx.text("invalid password for provided trader id.");
+                        } else {
+                            // should basically just send back serialized TraderAccount
+                            // need to attach all active order objects to TraderAccount in orderbook
+                            let account = self.global_state.global_account_state.index_ref(account_info_request.trader_id).lock().unwrap();
+                            // &* feels gross, not sure if there is a nicer/more performant solution
+                            ctx.text(serde_json::to_string(&*account).unwrap())
+                        }
+                    },
                 }
             }
 

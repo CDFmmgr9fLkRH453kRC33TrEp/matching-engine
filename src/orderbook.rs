@@ -1,6 +1,6 @@
 use crate::accounts;
 use crate::api_messages::{CancelIDNotFoundError, CancelOccurredMessage, CancelRequest, NewRestingOrderMessage, OrderFillMessage, OrderRequest, OutgoingMessage, TradeOccurredMessage};
-use crate::config;
+use crate::config::{self, GlobalAccountState};
 use crate::config::TickerSymbol;
 use crate::connection_server;
 use queues;
@@ -176,6 +176,7 @@ fn add_order_to_book(
         cancel_request: CancelRequest,
         order_counter: &web::Data<Arc<AtomicUsize>>,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
+        accounts_data: &GlobalAccountState,
     ) -> Result<Order, Box<dyn std::error::Error>> {
         debug!("remove_order_by_uuid trigger");
 
@@ -220,6 +221,10 @@ fn add_order_to_book(
                             self.sell_side_limit_levels[cancel_request.price]
                                 .orders
                                 .remove(index);
+                            
+                            let mut account = accounts_data.index_ref(canceled_order.trader_id).lock().unwrap();
+                            account.active_orders.retain(|&x| x.order_id != canceled_order.order_id);
+
                             relay_server_addr.do_send(Arc::new(OutgoingMessage::CancelOccurredMessage(CancelOccurredMessage{
                                 side: OrderType::Sell,
                                 amount: canceled_order.amount,
@@ -337,6 +342,10 @@ fn add_order_to_book(
                     // );
                     debug!("limit level: {:?}", current_price_level);
                     if self.buy_side_limit_levels[current_price_level].orders[0].amount == 0 {
+                        // should remove from counterparty's active order list
+                        let mut counter_party = accounts_data.index_ref(self.buy_side_limit_levels[current_price_level].orders[0].trader_id).lock().unwrap();
+                        counter_party.active_orders.retain(|&x| x.order_id != self.buy_side_limit_levels[current_price_level].orders[0].order_id);
+                        
                         self.buy_side_limit_levels[current_price_level]
                             .orders
                             .remove(0);
@@ -375,6 +384,10 @@ fn add_order_to_book(
 
         if sell_order.amount > 0 {
             let resting_order = self.add_order_to_book(sell_order, order_counter, order_id);
+            
+            let mut account = accounts_data.index_ref(sell_order.trader_id).lock().unwrap();
+            account.active_orders.push(resting_order);
+            
             self.sell_side_limit_levels[sell_order.price].total_volume += sell_order.amount;
             // self.print_book_state();
             // issue async is the culprit hanging up performance
@@ -413,8 +426,7 @@ fn add_order_to_book(
         } else {
             // self.print_book_state();
             return Ok(Order {
-                // this should be the proper order_id!
-                order_id: 0,
+                order_id: order_id,
                 trader_id: sell_order.trader_id,
                 symbol: sell_order.symbol,
                 amount: sell_order.amount,
@@ -488,6 +500,8 @@ fn add_order_to_book(
 
 
                     if self.sell_side_limit_levels[current_price_level].orders[0].amount == 0 {
+                        let mut counter_party = accounts_data.index_ref(self.sell_side_limit_levels[current_price_level].orders[0].trader_id).lock().unwrap();
+                        counter_party.active_orders.retain(|&x| x.order_id != self.sell_side_limit_levels[current_price_level].orders[0].order_id);
                         self.sell_side_limit_levels[current_price_level]
                             .orders
                             .remove(0);
@@ -529,6 +543,8 @@ fn add_order_to_book(
 
         if buy_order.amount > 0 {
             let resting_order = self.add_order_to_book(buy_order, order_counter, order_id);
+            let mut account = accounts_data.index_ref(buy_order.trader_id).lock().unwrap();
+            account.active_orders.push(resting_order);
             // self.print_book_state();
             debug!(
                 "Increasing total_volume on buy_side_limit_levels @ price {:?}",
@@ -564,7 +580,7 @@ fn add_order_to_book(
         } else {
             // order was filled before it rested on the book, order_id = 0 is special
             return Ok(Order {
-                order_id: 0,
+                order_id: order_id,
                 trader_id: buy_order.trader_id,
                 symbol: buy_order.symbol,
                 amount: buy_order.amount,

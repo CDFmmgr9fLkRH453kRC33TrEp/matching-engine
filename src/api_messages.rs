@@ -18,6 +18,7 @@ use derive_more::Error;
 pub enum IncomingMessage {
     OrderRequest(OrderRequest),
     CancelRequest(CancelRequest),
+    AccountInfoRequest(AccountInfoRequest)
 }
 #[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 #[serde(rename_all = "PascalCase")]
@@ -46,24 +47,23 @@ pub struct CancelRequest {
 // should we have a "request my personal info" message (which tells you your current positions, open orders etc. to prevent desyncs?)
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
-pub struct PersonalInfoRequest {
+pub struct AccountInfoRequest {
     pub password: accounts::Password,
     pub trader_id: TraderId,
-    
 }
 
 // Server -> Client Messages
 // should all impl error::ResponseError to play nice with Actix
 
-#[derive(Debug, Clone, Deserialize, Message, Serialize)]
-#[rtype(result = "()")]
-pub struct PersonalInfoResponse {
-    pub open_orders: Vec<Order>,
-    // pub assets: AssetBalances,
-    pub cents_balance: usize,
-    pub net_cents_balance: usize,
-    // pub net_asset_balances: AssetBalances
-}
+// #[derive(Debug, Clone, Deserialize, Message, Serialize)]
+// #[rtype(result = "()")]
+// pub struct PersonalInfoResponse {
+//     pub open_orders: Vec<Order>,
+//     // pub assets: AssetBalances,
+//     pub cents_balance: usize,
+//     pub net_cents_balance: usize,
+//     // pub net_asset_balances: AssetBalances
+// }
 
 // private server -> client
 #[derive(Debug, Serialize, Clone, Message, Copy)]

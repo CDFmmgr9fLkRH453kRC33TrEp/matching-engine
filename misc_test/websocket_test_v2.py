@@ -37,11 +37,7 @@ async def producer():
     side = random.choice(["Sell", "Buy"])
     side = "Buy"
     jsonreq = {
-        'MessageType': 'OrderRequest',
-        'OrderType': side,
-        'Amount': 1,
-        'Price': price,
-        'Symbol': symbol,
+        'MessageType': 'AccountInfoRequest',
         'TraderId': f"{args.id}",
         'Password': list(args.password)
     }
@@ -51,7 +47,7 @@ async def producer_handler(websocket):
     while True:
         message = await producer()
         await websocket.send(message)
-        await asyncio.sleep(0.0001)
+        await asyncio.sleep(1)
 
 
 async def handler(websocket):

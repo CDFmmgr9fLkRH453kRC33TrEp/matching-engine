@@ -111,6 +111,10 @@ fn load_state(
                                 order_counter,
                             );
                         }
+                        api_messages::IncomingMessage::AccountInfoRequest(account_info_request) => {
+                            info!("Account info request found")
+                        }
+                        
                     }
                 }
                 // return the final reconstructed global state
@@ -355,14 +359,16 @@ async fn main() -> std::io::Result<()> {
         serde_json::to_string(&global_state).unwrap()
     );
     
-    let gs = load_state(
-        fs::File::open(std::path::Path::new("./test.log")).unwrap(),
-        &web::Data::new(order_count.clone()),
-        &web::Data::new(relay_server.clone()),
-    )
-    .unwrap();
+    // todo: handle flag here to allow for cli recovery
 
-    info!("loaded_state: {:?}", gs);
+    // let gs = load_state(
+    //     fs::File::open(std::path::Path::new("./test.log")).unwrap(),
+    //     &web::Data::new(order_count.clone()),
+    //     &web::Data::new(relay_server.clone()),
+    // )
+    // .unwrap();
+
+    // info!("loaded_state: {:?}", gs);
 
     // global_state = web::Data::new(gs);
 
