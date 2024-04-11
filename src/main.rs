@@ -169,18 +169,12 @@ async fn main() -> std::io::Result<()> {
     // to do: add actix guards to confirm credit checks etc.
     // to do: move this declaration to macro_calls file to generate fields automatically
     let global_orderbook_state = config::GlobalOrderBookState {
-        AAPL: Mutex::new(quickstart_order_book(
-            config::TickerSymbol::AAPL,
-            0,
-            11,
-            10000,
-        )),
-        JNJ: Mutex::new(quickstart_order_book(
-            config::TickerSymbol::JNJ,
-            0,
-            11,
-            10000,
-        )),
+        JJS:Mutex::new(quickstart_order_book(config::TickerSymbol::JJS,0,11,10000,)),
+        iJJS:Mutex::new(quickstart_order_book(config::TickerSymbol::iJJS,0,11,10000,)), 
+        TS: Mutex::new(quickstart_order_book(config::TickerSymbol::TS,0,11,10000,)),
+        TT: Mutex::new(quickstart_order_book(config::TickerSymbol::TT,0,11,10000,)),
+        iTS: Mutex::new(quickstart_order_book(config::TickerSymbol::iTS,0,11,10000,)), 
+        iTT: Mutex::new(quickstart_order_book(config::TickerSymbol::iTT,0,11,10000,))
     };
 
     // todo: abstract to config file, this is disgusting (see config.json -> build.rs -> config.rs)
@@ -223,7 +217,7 @@ async fn main() -> std::io::Result<()> {
         .lock()
         .unwrap()
         .asset_balances
-        .index_ref(&config::TickerSymbol::AAPL)
+        .index_ref(&config::TickerSymbol::TT)
         .lock()
         .unwrap() = 30000;
     *global_account_state
@@ -231,7 +225,7 @@ async fn main() -> std::io::Result<()> {
         .lock()
         .unwrap()
         .net_asset_balances
-        .index_ref(&config::TickerSymbol::AAPL)
+        .index_ref(&config::TickerSymbol::iTT)
         .lock()
         .unwrap() = 30000;
     *global_account_state
@@ -239,7 +233,7 @@ async fn main() -> std::io::Result<()> {
         .lock()
         .unwrap()
         .asset_balances
-        .index_ref(&config::TickerSymbol::JNJ)
+        .index_ref(&config::TickerSymbol::TS)
         .lock()
         .unwrap() = 30000;
     *global_account_state
@@ -247,106 +241,106 @@ async fn main() -> std::io::Result<()> {
         .lock()
         .unwrap()
         .net_asset_balances
-        .index_ref(&config::TickerSymbol::JNJ)
+        .index_ref(&config::TickerSymbol::iTS)
         .lock()
         .unwrap() = 30000;
     *global_account_state
-        .Columbia_B
+        .Columbia_A
         .lock()
         .unwrap()
         .asset_balances
-        .index_ref(&config::TickerSymbol::AAPL)
+        .index_ref(&config::TickerSymbol::JJS)
         .lock()
         .unwrap() = 30000;
     *global_account_state
-        .Columbia_B
+        .Columbia_A
         .lock()
         .unwrap()
         .net_asset_balances
-        .index_ref(&config::TickerSymbol::AAPL)
+        .index_ref(&config::TickerSymbol::iJJS)
         .lock()
         .unwrap() = 30000;
-    *global_account_state
-        .Columbia_B
-        .lock()
-        .unwrap()
-        .asset_balances
-        .index_ref(&config::TickerSymbol::JNJ)
-        .lock()
-        .unwrap() = 30000;
-    *global_account_state
-        .Columbia_B
-        .lock()
-        .unwrap()
-        .net_asset_balances
-        .index_ref(&config::TickerSymbol::JNJ)
-        .lock()
-        .unwrap() = 30000;
+    // *global_account_state
+    //     .Columbia_B
+    //     .lock()
+    //     .unwrap()
+    //     .asset_balances
+    //     .index_ref(&config::TickerSymbol::JNJ)
+    //     .lock()
+    //     .unwrap() = 30000;
+    // *global_account_state
+    //     .Columbia_B
+    //     .lock()
+    //     .unwrap()
+    //     .net_asset_balances
+    //     .index_ref(&config::TickerSymbol::JNJ)
+    //     .lock()
+    //     .unwrap() = 30000;
 
-    *global_account_state
-        .Columbia_C
-        .lock()
-        .unwrap()
-        .asset_balances
-        .index_ref(&config::TickerSymbol::AAPL)
-        .lock()
-        .unwrap() = 50000;
-    *global_account_state
-        .Columbia_C
-        .lock()
-        .unwrap()
-        .net_asset_balances
-        .index_ref(&config::TickerSymbol::AAPL)
-        .lock()
-        .unwrap() = 50000;
-    *global_account_state
-        .Columbia_C
-        .lock()
-        .unwrap()
-        .asset_balances
-        .index_ref(&config::TickerSymbol::JNJ)
-        .lock()
-        .unwrap() = 50000;
-    *global_account_state
-        .Columbia_C
-        .lock()
-        .unwrap()
-        .net_asset_balances
-        .index_ref(&config::TickerSymbol::JNJ)
-        .lock()
-        .unwrap() = 50000;
-    *global_account_state
-        .Columbia_D
-        .lock()
-        .unwrap()
-        .asset_balances
-        .index_ref(&config::TickerSymbol::AAPL)
-        .lock()
-        .unwrap() = 10000;
-    *global_account_state
-        .Columbia_D
-        .lock()
-        .unwrap()
-        .net_asset_balances
-        .index_ref(&config::TickerSymbol::AAPL)
-        .lock()
-        .unwrap() = 10000;
-    *global_account_state
-        .Columbia_D
-        .lock()
-        .unwrap()
-        .asset_balances
-        .index_ref(&config::TickerSymbol::JNJ)
-        .lock()
-        .unwrap() = 80000;
-    *global_account_state
-        .Columbia_D
-        .lock()
-        .unwrap()
-        .net_asset_balances
-        .index_ref(&config::TickerSymbol::JNJ)
-        .lock()
-        .unwrap() = 80000;
+    // *global_account_state
+    //     .Columbia_C
+    //     .lock()
+    //     .unwrap()
+    //     .asset_balances
+    //     .index_ref(&config::TickerSymbol::AAPL)
+    //     .lock()
+    //     .unwrap() = 50000;
+    // *global_account_state
+    //     .Columbia_C
+    //     .lock()
+    //     .unwrap()
+    //     .net_asset_balances
+    //     .index_ref(&config::TickerSymbol::AAPL)
+    //     .lock()
+    //     .unwrap() = 50000;
+    // *global_account_state
+    //     .Columbia_C
+    //     .lock()
+    //     .unwrap()
+    //     .asset_balances
+    //     .index_ref(&config::TickerSymbol::JNJ)
+    //     .lock()
+    //     .unwrap() = 50000;
+    // *global_account_state
+    //     .Columbia_C
+    //     .lock()
+    //     .unwrap()
+    //     .net_asset_balances
+    //     .index_ref(&config::TickerSymbol::JNJ)
+    //     .lock()
+    //     .unwrap() = 50000;
+    // *global_account_state
+    //     .Columbia_D
+    //     .lock()
+    //     .unwrap()
+    //     .asset_balances
+    //     .index_ref(&config::TickerSymbol::AAPL)
+    //     .lock()
+    //     .unwrap() = 10000;
+    // *global_account_state
+    //     .Columbia_D
+    //     .lock()
+    //     .unwrap()
+    //     .net_asset_balances
+    //     .index_ref(&config::TickerSymbol::AAPL)
+    //     .lock()
+    //     .unwrap() = 10000;
+    // *global_account_state
+    //     .Columbia_D
+    //     .lock()
+    //     .unwrap()
+    //     .asset_balances
+    //     .index_ref(&config::TickerSymbol::JNJ)
+    //     .lock()
+    //     .unwrap() = 80000;
+    // *global_account_state
+    //     .Columbia_D
+    //     .lock()
+    //     .unwrap()
+    //     .net_asset_balances
+    //     .index_ref(&config::TickerSymbol::JNJ)
+    //     .lock()
+    //     .unwrap() = 80000;
 
     let global_state = web::Data::new(GlobalState {
         global_orderbook_state: global_orderbook_state,

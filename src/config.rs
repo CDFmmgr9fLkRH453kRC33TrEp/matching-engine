@@ -152,9 +152,9 @@ macro_rules! generate_global_state {
     };
 }
 
-generate_ticker_enum!([AAPL,JNJ]);
-generate_account_balances_struct!([AAPL,JNJ]);
-generate_global_state!([AAPL,JNJ], [
+generate_ticker_enum!([JJS,TS,TT,iJJS,iTS,iTT]);
+generate_account_balances_struct!([JJS,TS,TT,iJJS,iTS,iTT]);
+generate_global_state!([JJS,TS,TT,iJJS,iTS,iTT], [
         Columbia_A,
         Columbia_B,
         Columbia_C,
