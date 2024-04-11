@@ -50,6 +50,12 @@ impl Handler<Arc<OutgoingMessage>> for Server {
         // there has to be a nicer way to do this, but cant figure out how to access inner type when doing a default match
         // ctx.text(serde_json::to_string(&msg.d).unwrap());
 
+        // need to check that we are not sending out to trader which placed the order
+        // to avoid double counting, could match on address, but seems bad. 
+
+        // do not need to avoid double messages, just advise clients that they shouldn't update 
+        // their orderbook on personal trade messages (i.e. they can deal with this)
+
         match *msg {
             OutgoingMessage::NewRestingOrderMessage(m) => {
                 let msg_arc = Arc::new(OutgoingMessage::NewRestingOrderMessage(m));
@@ -73,7 +79,6 @@ impl Handler<Arc<OutgoingMessage>> for Server {
     }
 }
 
-// TODO: handle websocket disconnects by removing actors from list
 impl Handler<crate::message_types::OpenMessage> for Server{
     type Result = ();
     fn handle(

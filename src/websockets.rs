@@ -22,9 +22,7 @@ use actix_broker::{ArbiterBroker, Broker, BrokerIssue, BrokerSubscribe, SystemBr
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(4);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 use crate::api_messages::{
-    CancelConfirmMessage, CancelErrorMessage, CancelRequest, OrderConfirmMessage,
-    OrderPlaceErrorMessage, OrderPlaceResponse, OrderRequest, OutgoingMessage,
-    TradeOccurredMessage,
+    CancelConfirmMessage, CancelErrorMessage, CancelRequest, OrderConfirmMessage, OrderFillMessage, OrderPlaceErrorMessage, OrderPlaceResponse, OrderRequest, OutgoingMessage, TradeOccurredMessage
 };
 use crate::message_types::{CloseMessage, OpenMessage};
 use crate::orderbook::{Fill, TraderId};
@@ -167,6 +165,11 @@ pub fn add_order<'a>(
     // jnj_orderbook.lock().unwrap().print_book_state();
     // ISSUE: need to borrow accounts as mutable without knowing which ones will be needed to be borrowed
     // maybe pass in immutable reference to entire account state, and only acquire the locks for the mutex's that it turns out we need
+    
+    
+    // Server Generated Order ID 
+    let order_id = order_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
     let order = data
         .index_ref(&symbol.clone())
         .lock()
@@ -176,6 +179,7 @@ pub fn add_order<'a>(
             accounts_data,
             relay_server_addr,
             order_counter,
+            order_id
         );
 
     // very gross, should deal with
@@ -382,25 +386,14 @@ impl Actor for MyWebSocketActor {
     }
 }
 
-/// Define handler for `Fill` message
-impl Handler<Arc<orderbook::Fill>> for MyWebSocketActor {
+/// Define handler for `Fill` message, triggers when one of your orders is involved in a trade
+impl Handler<Arc<crate::api_messages::OrderFillMessage>> for MyWebSocketActor {
     type Result = ();
-    // superseded by TradeOccurredMessage, should be dead code
-    // should implement api_messages.rs spec
 
-    fn handle(&mut self, msg: Arc<orderbook::Fill>, ctx: &mut Self::Context) {
-        let fill_event = msg;
-        ctx.text(stringify!(
-            {
-                "MessageType": "YourFillMessage",
-                "Content": {
-                    "amount": fill_event.amount,
-                    "order_id": TBD
-                    "symbol": fill_event.symbol
-                    "price": fill_event.price
-                }
-            }
-        ));
+    fn handle(&mut self, msg: Arc<crate::api_messages::OrderFillMessage>, ctx: &mut Self::Context) {
+        // let fill_event = msg;
+
+        ctx.text(serde_json::to_string(&msg).unwrap());
     }
 }
 
@@ -502,15 +495,13 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
         
         
         ctx.text(serde_json::to_string(&self.global_state.global_orderbook_state).unwrap());
-        // TODO: switch to api_messages spec (only messages sent are if your order was filled)
+        
+        // Message queue should support OrderFillMessage, not TradeOccurredMessage or Fill
+        // to inform client side account state sync
+
         while (message_queue.size() != 0) {            
-            let fill_event = message_queue.remove().unwrap();            
-            let msg = TradeOccurredMessage {
-                amount: fill_event.amount,
-                symbol: fill_event.symbol,
-                price: fill_event.price,
-            };
-            ctx.text(serde_json::to_string(&msg).unwrap());
+            let order_fill_msg = message_queue.remove().unwrap();            
+            ctx.text(serde_json::to_string(&order_fill_msg).unwrap());
         }
         debug!("Sending serialized orderbook state.");
         

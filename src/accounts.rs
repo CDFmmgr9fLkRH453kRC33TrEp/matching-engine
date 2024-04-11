@@ -36,7 +36,7 @@ pub struct TraderAccount {
     // consider changing to Buffer instead of Queue to know size
     #[serde(skip)]
     #[serde(default = "empty_message_queue")]
-    pub message_backup: queues::Queue<Arc<orderbook::Fill>>,
+    pub message_backup: queues::Queue<Arc<crate::api_messages::OrderFillMessage>>,
 
     pub net_cents_balance: usize,
     // asset_balances, net_asset_balances updated on fill event, and so should be current
@@ -50,14 +50,13 @@ fn ret_none() -> Option<Addr<websockets::MyWebSocketActor>> {
     None
 }
 
-
-fn empty_message_queue() -> queues::Queue<Arc<orderbook::Fill>> {
+fn empty_message_queue() -> queues::Queue<Arc<crate::api_messages::OrderFillMessage>> {
     queues::Queue::new()
 }
 
 
 impl TraderAccount {
-    pub fn push_fill(&mut self, fill_event: Arc<orderbook::Fill>) {
+    pub fn push_fill(&mut self, fill_event: Arc<crate::api_messages::OrderFillMessage>) {
         // maybe spawn async thread?
         match &self.current_actor {
             None => {
@@ -82,7 +81,7 @@ pub fn quickstart_trader_account (trader_id: config::TraderId, cents_balance: us
         // trader_ip: trader_ip,
         cents_balance: cents_balance,
         net_cents_balance: cents_balance,
-        message_backup: queues::Queue::<Arc<orderbook::Fill>>::new(),
+        message_backup: queues::Queue::<Arc<crate::api_messages::OrderFillMessage>>::new(),
         // asset_balances, net_asset_balances updated on fill event, and so should be current
         // in asset lots
         asset_balances: config::AssetBalances::new(),

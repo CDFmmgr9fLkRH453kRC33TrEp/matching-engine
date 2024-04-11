@@ -1,5 +1,5 @@
 use crate::accounts;
-use crate::api_messages::{CancelIDNotFoundError, CancelOccurredMessage, CancelRequest, NewRestingOrderMessage, OrderRequest, OutgoingMessage, TradeOccurredMessage};
+use crate::api_messages::{CancelIDNotFoundError, CancelOccurredMessage, CancelRequest, NewRestingOrderMessage, OrderFillMessage, OrderRequest, OutgoingMessage, TradeOccurredMessage};
 use crate::config;
 use crate::config::TickerSymbol;
 use crate::connection_server;
@@ -134,11 +134,12 @@ fn add_order_to_book(
         &mut self,
         new_order_request: OrderRequest,
         order_counter: &web::Data<Arc<AtomicUsize>>,
+        order_id: OrderID
     ) -> Order {
         // should add error handling if push fails
         debug!("add_order_to_book trigger");
         // uuid creation is taking non negligible time
-        let order_id = order_counter.fetch_add(1, Ordering::Relaxed);
+        // let order_id = order_counter.fetch_add(1, Ordering::Relaxed);
         debug!("curr_order_id: {:?}", order_id);
         let new_order = Order {
             order_id: order_id,
@@ -243,6 +244,7 @@ fn add_order_to_book(
         accounts_data: &crate::config::GlobalAccountState,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
         order_counter: &web::Data<Arc<AtomicUsize>>,
+        order_id: OrderID,
     ) -> Result<Order, Box<dyn std::error::Error>> {
         match new_order_request.order_type {
             OrderType::Buy => self.handle_incoming_buy(
@@ -250,12 +252,14 @@ fn add_order_to_book(
                 accounts_data,
                 relay_server_addr,
                 order_counter,
+                order_id,
             ),
             OrderType::Sell => self.handle_incoming_sell(
                 new_order_request,
                 accounts_data,
                 relay_server_addr,
                 order_counter,
+                order_id,
             ),
         }
     }
@@ -265,6 +269,7 @@ fn add_order_to_book(
         accounts_data: &crate::config::GlobalAccountState,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
         order_counter: &web::Data<Arc<AtomicUsize>>,
+        order_id: OrderID
     ) -> Result<Order, Box<dyn std::error::Error>> {
         debug!(
             "Incoming sell, current high buy {:?}, current low sell {:?}",
@@ -290,6 +295,8 @@ fn add_order_to_book(
                     let buy_trader_id =
                         self.buy_side_limit_levels[current_price_level].orders[0].trader_id;
 
+                    let buy_trader_order_id = self.buy_side_limit_levels[current_price_level].orders[0].order_id;
+
                     let amount_to_be_traded = cmp::min(
                         sell_order.amount,
                         self.buy_side_limit_levels[current_price_level].orders[0].amount,
@@ -308,7 +315,9 @@ fn add_order_to_book(
                             price: trade_price,
                             trade_time: 1,
                         }),
-                        relay_server_addr
+                        relay_server_addr,
+                        buy_trader_order_id,
+                        order_id,
                     );
 
                     sell_order.amount -= amount_to_be_traded;
@@ -365,7 +374,7 @@ fn add_order_to_book(
         // will be changed to beam out book state to subscribers
 
         if sell_order.amount > 0 {
-            let resting_order = self.add_order_to_book(sell_order, order_counter);
+            let resting_order = self.add_order_to_book(sell_order, order_counter, order_id);
             self.sell_side_limit_levels[sell_order.price].total_volume += sell_order.amount;
             // self.print_book_state();
             // issue async is the culprit hanging up performance
@@ -404,6 +413,7 @@ fn add_order_to_book(
         } else {
             // self.print_book_state();
             return Ok(Order {
+                // this should be the proper order_id!
                 order_id: 0,
                 trader_id: sell_order.trader_id,
                 symbol: sell_order.symbol,
@@ -419,6 +429,8 @@ fn add_order_to_book(
         accounts_data: &crate::config::GlobalAccountState,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
         order_counter: &web::Data<Arc<AtomicUsize>>,
+        // this should be folded into OrderRequest eventually
+        order_id: OrderID,
     ) -> Result<Order, Box<dyn std::error::Error>> {
         debug!(
             "Incoming Buy, current low sell {:?}, current high buy {:?}",
@@ -461,7 +473,9 @@ fn add_order_to_book(
                             price: trade_price,
                             trade_time: 1,
                         }),
-                        relay_server_addr
+                        relay_server_addr,
+                        order_id,
+                        self.sell_side_limit_levels[current_price_level].orders[0].order_id
                     );
 
                     // TODO: create "sell" function that can handle calls to allocate credit etc.
@@ -514,7 +528,7 @@ fn add_order_to_book(
         // will be changed to beam out book state to subscribers
 
         if buy_order.amount > 0 {
-            let resting_order = self.add_order_to_book(buy_order, order_counter);
+            let resting_order = self.add_order_to_book(buy_order, order_counter, order_id);
             // self.print_book_state();
             debug!(
                 "Increasing total_volume on buy_side_limit_levels @ price {:?}",
@@ -565,7 +579,9 @@ fn add_order_to_book(
         buy_trader: &Mutex<accounts::TraderAccount>,
         sell_trader: &Mutex<accounts::TraderAccount>,
         fill_event: Arc<Fill>,
-        relay_server_addr: &web::Data<Addr<connection_server::Server>>
+        relay_server_addr: &web::Data<Addr<connection_server::Server>>,
+        buy_trader_order_id: OrderID,
+        sell_trader_order_id: OrderID,
     ) {
         // todo: this should acquire the lock for the the duration of the whole function (i.e. should take lock as argument instead of mutex)
 
@@ -581,11 +597,13 @@ fn add_order_to_book(
         buy_trader.lock().unwrap().cents_balance -= cent_value;
         // only cloning arc, so not slow!
         
-        buy_trader.lock().unwrap().push_fill(fill_event.clone());
-        // should send fill info to everyone?
-        // would need lock on every account. Should send messages instead.
-        // maybe use subscribers?
-        // actix broker
+        let buy_trader_order_fill_msg = Arc::new(OrderFillMessage {
+            order_id: buy_trader_order_id,// Should be order_id of the buy trader's order, not necessarily active incoming order,
+            amount_filled: fill_event.amount,
+            price: fill_event.price,
+        });
+
+        buy_trader.lock().unwrap().push_fill(buy_trader_order_fill_msg.clone());
 
         // would need to iterate over all traders and clone once per.
 
@@ -598,7 +616,15 @@ fn add_order_to_book(
             .unwrap() -= fill_event.amount;
         sell_trader.lock().unwrap().cents_balance += cent_value;
         sell_trader.lock().unwrap().net_cents_balance += cent_value;
-        sell_trader.lock().unwrap().push_fill(fill_event.clone());
+        
+        let sell_trader_order_fill_msg = Arc::new(OrderFillMessage {
+            order_id: sell_trader_order_id,// Should be order_id of the buy trader's order, not necessarily active incoming order,
+            amount_filled: fill_event.amount,
+            price: fill_event.price,
+        });
+        
+        sell_trader.lock().unwrap().push_fill(sell_trader_order_fill_msg.clone());
+
 
         let trade_occurred_message = Arc::new(OutgoingMessage::TradeOccurredMessage(
             TradeOccurredMessage {
@@ -609,6 +635,8 @@ fn add_order_to_book(
         ));
 
         relay_server_addr.do_send(trade_occurred_message);
+
+
 
         debug!(
             "{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
