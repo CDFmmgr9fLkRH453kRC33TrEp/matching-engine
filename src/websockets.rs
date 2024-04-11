@@ -499,30 +499,21 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
             .lock()
             .unwrap()
             .message_backup;
-
+        
+        
+        ctx.text(serde_json::to_string(&self.global_state.global_orderbook_state).unwrap());
         // TODO: switch to api_messages spec (only messages sent are if your order was filled)
-        while (message_queue.size() != 0) {
-            // println!("Message #{:?}", message_queue.size());
-            let fill_event = message_queue.remove().unwrap();
-            // println!("{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
-            // fill_event.sell_trader_id,
-            // fill_event.buy_trader_id,
-            // fill_event.amount,
-            // fill_event.symbol,
-            // fill_event.price);
-            ctx.text(format!(
-                "{:?} sells to {:?}: {:?} lots of {:?} @ ${:?}",
-                fill_event.sell_trader_id,
-                fill_event.buy_trader_id,
-                fill_event.amount,
-                fill_event.symbol,
-                fill_event.price
-            ));
-            // }
-            // should send global orderbook state.
+        while (message_queue.size() != 0) {            
+            let fill_event = message_queue.remove().unwrap();            
+            let msg = TradeOccurredMessage {
+                amount: fill_event.amount,
+                symbol: fill_event.symbol,
+                price: fill_event.price,
+            };
+            ctx.text(serde_json::to_string(&msg).unwrap());
         }
         debug!("Sending serialized orderbook state.");
-        ctx.text(serde_json::to_string(&self.global_state.global_orderbook_state).unwrap());
+        
     }
     // finished() function removes the trader account's actor addr
 
