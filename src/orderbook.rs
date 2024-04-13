@@ -760,7 +760,7 @@ pub fn quickstart_order_book(
 }
 
 fn main() {
-    let mut order_book = quickstart_order_book(config::TickerSymbol::AAPL, 0, 11, 1000);
+    let mut order_book = quickstart_order_book(config::TickerSymbol::JJS, 0, 11, 1000);
     // if let Err(err) = order_book.load_csv_test_data("src/test_orders.csv".into()) {
     //     println!("{}", err);
     //     process::exit(1);

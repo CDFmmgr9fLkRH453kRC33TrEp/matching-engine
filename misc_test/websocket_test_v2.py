@@ -31,13 +31,17 @@ uri = f"ws://{args.ip}:4000/orders/ws"
 print("uri:", uri)
 
 async def producer():
-    symbol = "AAPL"
+    symbol = "JJS"
     price = int((math.sin(time.time())))
     price = 1
     side = random.choice(["Sell", "Buy"])
     side = "Buy"
     jsonreq = {
-        'MessageType': 'AccountInfoRequest',
+        'MessageType': 'OrderRequest',
+        'OrderType': side,
+        'Amount': 1,
+        'Price': price,
+        'Symbol': symbol,
         'TraderId': f"{args.id}",
         'Password': list(args.password)
     }
@@ -47,7 +51,7 @@ async def producer_handler(websocket):
     while True:
         message = await producer()
         await websocket.send(message)
-        await asyncio.sleep(1)
+        await asyncio.sleep(0.0001)
 
 
 async def handler(websocket):
