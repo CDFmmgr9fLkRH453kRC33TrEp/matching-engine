@@ -140,9 +140,9 @@
             }
         }
 
-        #AAPL,
-        #MSFT,
-        #NVDA {
+        #JJS,
+        #TT,
+        #TS {
             width: 100%;
             position: absolute;
         }
@@ -445,51 +445,51 @@
     </div>
     <div id="nw">
         <select id="chartsel" onchange="change_graph()">
-            <option value="AAPLc">AAPL</option>
-            <option value="MSFTc">MSFT</option>
-            <option value="NVDAc">NVDA</option>
-            <option value="GOOGc">GOOG</option>
-            <option value="METAc">META</option>
-            <option value="AMZNc">AMZN</option>
+            <option value="JJSc">JJS</option>
+            <option value="TTc">TT</option>
+            <option value="TSc">TS</option>
+            <option value="iTSc">iTS</option>
+            <option value="iJJSc">iJJS</option>
+            <option value="iTTc">iTT</option>
         </select>
-            <div class="chart" id="AAPLc"></div>
-            <div class="chart hide" id="MSFTc"></div>
-            <div class="chart hide" id="NVDAc"></div>
-            <div class="chart hide" id="GOOGc"></div>
-            <div class="chart hide" id="METAc"></div>
-            <div class="chart hide" id="AMZNc"></div>
+            <div class="chart" id="JJSc"></div>
+            <div class="chart hide" id="TTc"></div>
+            <div class="chart hide" id="TSc"></div>
+            <div class="chart hide" id="iTSc"></div>
+            <div class="chart hide" id="iJJSc"></div>
+            <div class="chart hide" id="iTTc"></div>
     </div>
     <div id="mid">
         <table id="Tickers" border=1 bordercolor= #6fc9f2 frame=hsides rules=rows>
             <tr>
-                <td>MSFT</td>
-                <td class="pricet" id="MSFTt">100.00</td>
-                <td class="pctinit" id="MSFTp">⏴0%</td>
+                <td>TT</td>
+                <td class="pricet" id="TTt">50.00</td>
+                <td class="pctinit" id="TTp">⏴0%</td>
             </tr>
             <tr>
-                <td>AAPL</td>
-                <td class="pricet" id="AAPLt">100.00</td>
-                <td class="pctinit" id="AAPLp">⏴0%</td>
+                <td>JJS</td>
+                <td class="pricet" id="JJSt">50.00</td>
+                <td class="pctinit" id="JJSp">⏴0%</td>
             </tr>
             <tr>
-                <td>GOOG</td>
-                <td class="pricet" id="GOOGt">100.00</td>
-                <td class="pctinit" id="GOOGp">⏴0%</td>
+                <td>iTS</td>
+                <td class="pricet" id="iTSt">50.00</td>
+                <td class="pctinit" id="iTSp">⏴0%</td>
             </tr>
             <tr>
-                <td>AMZN</td>
-                <td class="pricet" id="AMZNt">100.00</td>
-                <td class="pctinit" id="AMZNp">⏴0%</td>
+                <td>iTT</td>
+                <td class="pricet" id="iTTt">50.00</td>
+                <td class="pctinit" id="iTTp">⏴0%</td>
             </tr>
             <tr>
-                <td>NVDA</td>
-                <td class="pricet" id="NVDAt">100.00</td>
-                <td class="pctinit" id="NVDAp">⏴0%</td>
+                <td>TS</td>
+                <td class="pricet" id="TSt">50.00</td>
+                <td class="pctinit" id="TSp">⏴0%</td>
             </tr>
             <tr>
-                <td>META</td>
-                <td class="pricet" id="METAt">100.00</td>
-                <td class="pctinit" id="METAp">⏴0%</td>
+                <td>iJJS</td>
+                <td class="pricet" id="iJJSt">50.00</td>
+                <td class="pctinit" id="iJJSp">⏴0%</td>
             </tr>
         </table>
     </div>
@@ -521,7 +521,7 @@
                 <label>Symbol</label>
                 <div>
                     <select id="symbol" name="symbol" class="form-control">
-                        <option value="AAPL">AAPL</option>
+                        <option value="JJS">JJS</option>
                         <option value="JNJ">JNJ</option>
                     </select>
                 </div>
@@ -569,15 +569,15 @@
         var tradevol = 0.00;
 
         recentPrices = {
-            'AAPL': [100, 100, 100, 100],
-            'MSFT': [100, 100, 100, 100],
-            'NVDA': [100, 100, 100, 100],
-            'GOOG': [100, 100, 100, 100],
-            'AMZN': [100, 100, 100, 100],
-            'META': [100, 100, 100, 100]
+            'JJS': [100, 100, 100, 100],
+            'TT': [100, 100, 100, 100],
+            'TS': [100, 100, 100, 100],
+            'iTS': [100, 100, 100, 100],
+            'iTT': [100, 100, 100, 100],
+            'iJJS': [100, 100, 100, 100]
         }
         
-        tickers = {'AAPLt': 100, 'MSFTt': 100, 'NVDAt': 100, 'GOOGt': 100, 'AMZNt': 100, 'METAt': 100};
+        tickers = {'JJSt': 100, 'TTt': 100, 'TSt': 100, 'iTSt': 100, 'iTTt': 100, 'iJJSt': 100};
 
         var layout = {
         paper_bgcolor: "rgba(0,0,0,0)",
@@ -736,12 +736,12 @@
         };
 
         function updateplots() {
-            Plotly.newPlot('AAPLc', [trace1], layout);
-            Plotly.newPlot('MSFTc', [trace2], layout);
-            Plotly.newPlot('NVDAc', [trace3], layout);
-            Plotly.newPlot('METAc', [trace6], layout);
-            Plotly.newPlot('AMZNc', [trace5], layout);
-            Plotly.newPlot('GOOGc', [trace4], layout);
+            Plotly.newPlot('JJSc', [trace1], layout);
+            Plotly.newPlot('TTc', [trace2], layout);
+            Plotly.newPlot('TSc', [trace3], layout);
+            Plotly.newPlot('iJJSc', [trace6], layout);
+            Plotly.newPlot('iTTc', [trace5], layout);
+            Plotly.newPlot('iTSc', [trace4], layout);
         }
 
 
@@ -942,7 +942,7 @@
         if ((username != null) && (password != null)) {
             // case where user already put in their info and reloaded or something
             console.log("localStorage usable")
-            ws = new WebSocket("ws://127.16.123.1:4000/orders/ws", [username])
+            ws = new WebSocket("ws://10.207.51.247:4000/orders/ws", [username])
         }
 
         function logIn(event) {
@@ -956,7 +956,8 @@
             localStorage.setItem("cap_exchange_password", password)
             // super hack-y, but I think this is the simplest way
             // https://stackoverflow.com/questions/4361173/http-headers-in-websockets-client-api
-            ws = new WebSocket("ws://127.16.123.1:4000/orders/ws", [username])
+            ws = new WebSocket("ws://10.207.51.247:4000/orders/ws", [username])
+            document.getElementById("connection").textContent = "Connected 🟢";
             event.preventDefault;
         }
 
@@ -988,7 +989,7 @@
         high_buy = 10
         low_sell = 0
         orderbooks = {
-            "AAPL": {
+            "JJS": {
                 "scale_factor": 1,
                 "depth_chart_buy": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                 "depth_chart_sell": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -1337,7 +1338,7 @@
                 canWidth = 0.95 * document.getElementById('se').clientWidth;
                 canHeight = document.getElementById('se').clientHeight;
                 resizeCanvas(canWidth, canHeight);
-                update_viz("AAPL");
+                update_viz("JJS");
                 updateplots();
         }
 
@@ -1354,7 +1355,7 @@
                 'order_info': {
                     'order_id': '12345',
                     'trader_id': 'TraderId',
-                    'symbol': 'AAPL',
+                    'symbol': 'JJS',
                     'amount': 500,
                     'price': 500,
                     'order_type': 'Buy',
@@ -1385,7 +1386,7 @@
                 'order_info': {
                     'order_id': '123',
                     'trader_id': 'TraderId',
-                    'symbol': 'AAPL',
+                    'symbol': 'JJS',
                     'amount': 500,
                     'price': 500,
                     'order_type': 'Sell',
@@ -1412,7 +1413,7 @@
                 'order_info': {
                     'order_id': '123',
                     'trader_id': 'TraderId',
-                    'symbol': 'AAPL',
+                    'symbol': 'JJS',
                     'amount': 500,
                     'price': 500,
                     'order_type': 'Sell',
