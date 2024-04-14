@@ -4,6 +4,7 @@ import time
 from PIL import Image
 import matplotlib.pyplot as plt
 import math
+import random
 #doesn't account for time = "now", but that ends up adding more variance
 
 file = open('Train_data','a+')
@@ -31,9 +32,10 @@ for i in range(60):
     #y_vals.append(avg)
     #x_vals.append(i)
     runavg = tot / count
-    file.write(str(((math.atan((avg - runavg) / 6) /  (math.pi)) + 0.5)*10000) + '\n')
+    file.write(str(((math.atan((avg - runavg) / 6) /  (math.pi)) + 0.5)*50) + '\n')
     driver.refresh()
-    time.sleep(10)
+    offset = random.randint(0,5)
+    time.sleep(60 + offset)
 
 file.close()
 #plt.plot(x_vals, y_vals, label='Data Points', marker='o')

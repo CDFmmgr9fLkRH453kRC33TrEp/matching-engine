@@ -4,6 +4,7 @@ import time
 from PIL import Image
 import matplotlib.pyplot as plt
 import math
+import random
 #import statistics
 
 file = open('TS_data', 'a+')
@@ -29,7 +30,7 @@ time.sleep(30)
 #toAppend = calculate_average_pixel_value("timessquare.png")
 #data.append(toAppend)
 
-for i in range(10):
+for i in range(60):
     livestream.screenshot("timessquare.png")
     toAppend = calculate_average_pixel_value("timessquare.png")
 
@@ -39,8 +40,9 @@ for i in range(10):
     #y_vals.append(toAppend)
     #x_vals.append(i)
     # I feel like the 20 should be dynamic in some way, like maybe one standard deviation
-    file.write(str(((math.atan((toAppend - runavg) / 18) /  (math.pi)) + 0.5)*10000) + '\n')
-    time.sleep(5)
+    file.write(str(((math.atan((toAppend - runavg) / 18) /  (math.pi)) + 0.5)*50) + '\n')
+    offset = random.randint(0,5)
+    time.sleep(60 + offset)
 
 file.close()
 #plt.plot(x_vals, y_vals, label='Data Points', marker='o')
