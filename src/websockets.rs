@@ -387,7 +387,7 @@ impl Handler<Arc<crate::api_messages::OrderFillMessage>> for MyWebSocketActor {
         // let fill_event = msg;
         let hack_msg = api_messages::OutgoingMessage::OrderFillMessage(*msg);
 
-        ctx.text(serde_json::to_string(&    hack_msg).unwrap());
+        ctx.text(serde_json::to_string(&hack_msg).unwrap());
     }
 }
 
@@ -494,8 +494,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
         // to inform client side account state sync
 
         while (message_queue.size() != 0) {            
-            let order_fill_msg = message_queue.remove().unwrap();            
-            ctx.text(serde_json::to_string(&order_fill_msg).unwrap());
+            let order_fill_msg = message_queue.remove().unwrap();
+            let hack_msg = api_messages::OutgoingMessage::OrderFillMessage(*order_fill_msg);
+            ctx.text(serde_json::to_string(&hack_msg).unwrap());
         }
         debug!("Sending serialized orderbook state.");
         
@@ -519,6 +520,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
 
                 // this is very expensive, should implement more rigid parsing.
                 // TODO: switch to handling in fix/binary instead of json to improve speed
+                info!("{}", &msg.to_string());
                 let incoming_message: IncomingMessage =
                     serde_json::from_str(&msg.to_string()).unwrap();
                 let connection_ip = self.connection_ip;
@@ -581,13 +583,13 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                             // for some reason goes up as more orders are added :(
                             match &res {
                                 OrderPlaceResponse::OrderPlaceErrorMessage(msg) => {
-                                    ctx.text(serde_json::to_string(msg).unwrap());
+                                    ctx.text(serde_json::to_string(&res).unwrap());
                                 }
                                 OrderPlaceResponse::OrderConfirmMessage(msg) => {
                                     // required for logging/state recovery in case of crashes
                                     info!("ORDER DUMP: {}", serde_json::to_string(&order_req).unwrap());
 
-                                    ctx.text(serde_json::to_string(msg).unwrap());
+                                    ctx.text(serde_json::to_string(&res).unwrap());
                                 }
                             }
                         }
@@ -645,12 +647,12 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                                     // required for logging/state recovery in case of crashes
                                     info!("CANCEL DUMP: {}", serde_json::to_string(&cancel_req).unwrap());
 
-                                    ctx.text(serde_json::to_string(msg).unwrap());
+                                    ctx.text(serde_json::to_string(&res).unwrap());
                                 }
                                 crate::api_messages::OrderCancelResponse::CancelErrorMessage(
                                     msg,
                                 ) => {
-                                    ctx.text(serde_json::to_string(msg).unwrap());
+                                    ctx.text(serde_json::to_string(&res).unwrap());
                                 }
                             }
                         };

@@ -158,12 +158,14 @@ pub enum OrderCancelResponse <'a> {
 
 #[derive(Message, Clone, Serialize)]
 #[rtype(result = "()")]
-pub enum OutgoingMessage{
+pub enum OutgoingMessage {
     // To make implementing default Handler for actors easier
     TradeOccurredMessage(TradeOccurredMessage),
     NewRestingOrderMessage(NewRestingOrderMessage),
     CancelOccurredMessage(CancelOccurredMessage),
     OrderFillMessage(OrderFillMessage),
+    // OrderConfirmMessage(OrderConfirmMessage),
+    // CancelConfirmMessage(CancelConfirmMessage),
 }
 
 #[derive(Debug, Error, Clone, Serialize)]
