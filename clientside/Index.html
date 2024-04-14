@@ -951,6 +951,8 @@
             // case where user already put in their info and reloaded or something
             console.log("localStorage usable")
             ws = new WebSocket("ws://10.207.51.247:4000/orders/ws", [username])
+            document.getElementById("user").textContent = data.get("username");
+            document.getElementById("connection").textContent = "Connected 🟢";
         }
 
 
