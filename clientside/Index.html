@@ -521,8 +521,6 @@
                 <label>Symbol</label>
                 <div>
                     <select id="symbol" name="symbol" class="form-control">
-                        <option value="JJS">JJS</option>
-                        <option value="iJJS">iJJS</option>
                         <option value="TT">TT</option>
                         <option value="iTT">iTT</option>
                     </select>
@@ -945,11 +943,13 @@
         username = localStorage.getItem("cap_exchange_username")
         password = localStorage.getItem("cap_exchange_password")
 
+
         if ((username != null) && (password != null)) {
             // case where user already put in their info and reloaded or something
             console.log("localStorage usable")
             ws = new WebSocket("ws://10.207.51.247:4000/orders/ws", [username])
         }
+
 
         function logIn(event) {
             const data = new FormData(loginform);
@@ -995,16 +995,11 @@
         high_buy = 10
         low_sell = 0
         orderbooks = {
-            "JJS": {
+            "TT": {
                 "scale_factor": 1,
                 "depth_chart_buy": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                 "depth_chart_sell": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
             },
-            "JNJ": {
-                "scale_factor": 1,
-                "depth_chart_buy": [],
-                "depth_chart_sell": []
-            }
         }
 
         canWidth = 0.95 * document.getElementById('se').clientWidth;

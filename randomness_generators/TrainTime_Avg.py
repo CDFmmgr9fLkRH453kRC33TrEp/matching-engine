@@ -8,6 +8,7 @@ import random
 #doesn't account for time = "now", but that ends up adding more variance
 
 file = open('Train_data','a+')
+ifile = open('iTrain_data','a+')
 driver = webdriver.Edge()
 driver.get("https://realtimerail.nyc/stops/117")
 time.sleep(10)
@@ -33,11 +34,13 @@ for i in range(60):
     #x_vals.append(i)
     runavg = tot / count
     file.write(str(((math.atan((avg - runavg) / 6) /  (math.pi)) + 0.5)*50) + '\n')
+    ifile.write(str(50 - ((math.atan((avg - runavg) / 6) /  (math.pi)) + 0.5)*50) + '\n')
     driver.refresh()
     offset = random.randint(0,5)
     time.sleep(60 + offset)
 
 file.close()
+ifile.close()
 #plt.plot(x_vals, y_vals, label='Data Points', marker='o')
 #plt.xlabel('Time')
 #plt.ylabel('Avg Arrival')
