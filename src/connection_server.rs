@@ -74,7 +74,9 @@ impl Handler<Arc<OutgoingMessage>> for Server {
                 for connection in self.connected_actors.iter() {
                     connection.do_send(msg_arc.clone());
                 }
-            }            
+            }
+            // This should never be reached, quick hack before first test
+            OutgoingMessage::OrderFillMessage(_) => todo!(),            
         }
     }
 }

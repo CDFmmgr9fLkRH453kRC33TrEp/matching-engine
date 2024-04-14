@@ -22,7 +22,7 @@ use actix_broker::{ArbiterBroker, Broker, BrokerIssue, BrokerSubscribe, SystemBr
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(4);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 use crate::api_messages::{
-    CancelConfirmMessage, CancelErrorMessage, CancelRequest, IncomingMessage, OrderConfirmMessage, OrderFillMessage, OrderPlaceErrorMessage, OrderPlaceResponse, OrderRequest, OutgoingMessage, TradeOccurredMessage
+    self, CancelConfirmMessage, CancelErrorMessage, CancelRequest, IncomingMessage, OrderConfirmMessage, OrderFillMessage, OrderPlaceErrorMessage, OrderPlaceResponse, OrderRequest, OutgoingMessage, TradeOccurredMessage
 };
 use crate::message_types::{CloseMessage, OpenMessage};
 use crate::orderbook::{Fill, TraderId};
@@ -385,8 +385,9 @@ impl Handler<Arc<crate::api_messages::OrderFillMessage>> for MyWebSocketActor {
 
     fn handle(&mut self, msg: Arc<crate::api_messages::OrderFillMessage>, ctx: &mut Self::Context) {
         // let fill_event = msg;
+        let hack_msg = api_messages::OutgoingMessage::OrderFillMessage(*msg);
 
-        ctx.text(serde_json::to_string(&msg).unwrap());
+        ctx.text(serde_json::to_string(&    hack_msg).unwrap());
     }
 }
 

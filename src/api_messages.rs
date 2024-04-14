@@ -163,6 +163,7 @@ pub enum OutgoingMessage{
     TradeOccurredMessage(TradeOccurredMessage),
     NewRestingOrderMessage(NewRestingOrderMessage),
     CancelOccurredMessage(CancelOccurredMessage),
+    OrderFillMessage(OrderFillMessage),
 }
 
 #[derive(Debug, Error, Clone, Serialize)]
