@@ -11,8 +11,10 @@ driver = webdriver.Edge()
 driver.get("https://realtimerail.nyc/stops/117")
 time.sleep(10)
 y_vals = []
-x_vals = []
+#x_vals = []
 #if we actually want avg wait time, should use the difference between each time
+tot = 0
+count = 0
 
 for i in range(60):
     myl = []
@@ -24,17 +26,17 @@ for i in range(60):
             myl.append(0)
     avg = sum(myl)   
     ##avg = sum(int("0" + "".join([s for s in t.text if s.isdigit()])) for t in times)
-    y_vals.append(avg)
-    x_vals.append(i)
-    runavg = sum(y_vals) / len(y_vals)
+    count += 1
+    tot += avg
+    #y_vals.append(avg)
+    #x_vals.append(i)
+    runavg = tot / count
     file.write(str(((math.atan((avg - runavg) / 6) /  (math.pi)) + 0.5)*10000) + '\n')
     driver.refresh()
     time.sleep(10)
 
-##((math.atan(avg) /  (math.pi)) + 0.5) * 10000
-
 file.close()
-plt.plot(x_vals, y_vals, label='Data Points', marker='o')
-plt.xlabel('Time')
-plt.ylabel('Avg Arrival')
-plt.show()
+#plt.plot(x_vals, y_vals, label='Data Points', marker='o')
+#plt.xlabel('Time')
+#plt.ylabel('Avg Arrival')
+#plt.show()

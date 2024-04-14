@@ -3,6 +3,8 @@ from selenium.webdriver.common.by import By
 import time
 from PIL import Image
 import matplotlib.pyplot as plt
+import math
+#import statistics
 
 file = open('TS_data', 'a+')
 
@@ -13,23 +15,35 @@ def calculate_average_pixel_value(image_path):
     average_pixel_value = sum(pixel_data) / len(pixel_data)
     return average_pixel_value
 
-y_vals = []
-x_vals = []
+#y_vals = []
+#x_vals = []
+
+data = []
 driver = webdriver.Edge()
 driver.get("https://www.earthcam.com/usa/newyork/timessquare/?cam=tsrobo1")
 livestream = driver.find_element(By.ID,value= 'videoPlayer_html5_api')
 
 time.sleep(30)
-for i in range(5):
-    livestream.screenshot("screenshots/othertest.png")
-    toAppend = calculate_average_pixel_value("screenshots/othertest.png")
-    y_vals.append(toAppend)
-    x_vals.append(i)
-    file.write(str(toAppend) + '\n')
+
+#livestream.screenshot("timessquare.png")
+#toAppend = calculate_average_pixel_value("timessquare.png")
+#data.append(toAppend)
+
+for i in range(10):
+    livestream.screenshot("timessquare.png")
+    toAppend = calculate_average_pixel_value("timessquare.png")
+
+    data.append(toAppend)
+    runavg = sum(data) / len(data)
+    #print(statistics.stdev(data))
+    #y_vals.append(toAppend)
+    #x_vals.append(i)
+    # I feel like the 20 should be dynamic in some way, like maybe one standard deviation
+    file.write(str(((math.atan((toAppend - runavg) / 18) /  (math.pi)) + 0.5)*10000) + '\n')
     time.sleep(5)
 
 file.close()
-plt.plot(x_vals, y_vals, label='Data Points', marker='o')
-plt.xlabel('Time')
-plt.ylabel('Avg Brightness')
-plt.show()
+#plt.plot(x_vals, y_vals, label='Data Points', marker='o')
+#plt.xlabel('Time')
+#plt.ylabel('Avg Brightness')
+#plt.show()
