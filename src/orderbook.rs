@@ -605,15 +605,16 @@ fn add_order_to_book(
         // todo: this should acquire the lock for the the duration of the whole function (i.e. should take lock as argument instead of mutex)
 
         let cent_value = &fill_event.amount * &fill_event.price;
-
-        *buy_trader
-            .lock()
-            .unwrap()
-            .asset_balances
-            .index_ref(&fill_event.symbol)
-            .lock()
-            .unwrap() += fill_event.amount;
-        buy_trader.lock().unwrap().cents_balance -= cent_value;
+        if (buy_trader.lock().unwrap().trader_id != TraderId::Price_Enforcer){
+            *buy_trader
+                .lock()
+                .unwrap()
+                .asset_balances
+                .index_ref(&fill_event.symbol)
+                .lock()
+                .unwrap() += fill_event.amount;
+            buy_trader.lock().unwrap().cents_balance -= cent_value;
+        }
         // only cloning arc, so not slow!
         
         let buy_trader_order_fill_msg = Arc::new(OrderFillMessage {
@@ -625,16 +626,17 @@ fn add_order_to_book(
         buy_trader.lock().unwrap().push_fill(buy_trader_order_fill_msg.clone());
 
         // would need to iterate over all traders and clone once per.
-
-        *sell_trader
-            .lock()
-            .unwrap()
-            .asset_balances
-            .index_ref(&fill_event.symbol)
-            .lock()
-            .unwrap() -= fill_event.amount;
-        sell_trader.lock().unwrap().cents_balance += cent_value;
-        sell_trader.lock().unwrap().net_cents_balance += cent_value;
+        if (sell_trader.lock().unwrap().trader_id != TraderId::Price_Enforcer){
+            *sell_trader
+                .lock()
+                .unwrap()
+                .asset_balances
+                .index_ref(&fill_event.symbol)
+                .lock()
+                .unwrap() -= fill_event.amount;
+            sell_trader.lock().unwrap().cents_balance += cent_value;
+            sell_trader.lock().unwrap().net_cents_balance += cent_value;
+        }
         
         let sell_trader_order_fill_msg = Arc::new(OrderFillMessage {
             order_id: sell_trader_order_id,// Should be order_id of the buy trader's order, not necessarily active incoming order,

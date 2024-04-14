@@ -995,16 +995,16 @@
         high_buy = 10
         low_sell = 0
         orderbooks = {
-            "JJS": {
+            "TT": {
                 "scale_factor": 1,
-                "depth_chart_buy": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                "depth_chart_sell": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+                "depth_chart_buy": [0] * 50,
+                "depth_chart_sell": [0] * 50
             },
-            "JNJ": {
+            "iTT": {
                 "scale_factor": 1,
-                "depth_chart_buy": [],
-                "depth_chart_sell": []
-            }
+                "depth_chart_buy": [0] * 50,
+                "depth_chart_sell": [0] * 50
+            },
         }
 
         canWidth = 0.95 * document.getElementById('se').clientWidth;
