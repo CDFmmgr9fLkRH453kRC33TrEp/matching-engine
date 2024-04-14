@@ -779,6 +779,7 @@
         }
 
         function cancelOrder(name, vol, price, type, id) {
+            console.log("Removing order with id: ", id)
             document.getElementById(id).remove();
             if (type == "Buy") {
                 available += price * vol;
@@ -808,7 +809,7 @@
             const Type = document.createElement('td');
             Type.textContent = type;
             Type.className = 'type';
-
+            
             const ButtonWrapper = document.createElement('td');
             ButtonWrapper.className = 'order';
             const removeButton = document.createElement('button');
@@ -819,15 +820,15 @@
 
                 const message = {
                     MessageType: "CancelRequest",
-                    order_id: id,
-                    trader_id: username,
-                    price: price,
-                    symbol: name,
-                    side: type,
-                    password: password,
+                    OrderId: id,
+                    TraderId: username,
+                    Price: price,
+                    Symbol: name,
+                    Side: type,
+                    Password: Array.from(password),
                 }
     
-                console.log(message);
+                // console.log(message);
                 ws.send(JSON.stringify(
                     message
                 ))
@@ -849,6 +850,8 @@
             }
 
             itemList.appendChild(item);
+
+            console.log("Appended new order!")
 
         }
 
@@ -1091,19 +1094,32 @@
         }
 
         function any_fill_evt(packet) {
-            symbol = packet[symbol];
-            price = packet[price];
+            symbol = packet["symbol"];
+            price = packet["price"];
             tickerID = symbol + 't';
             pctID = symbol + 'p';
+            resting_side = packet["resting_side"]
+            // update depth chart
+            if(resting_side == "Buy") {
+                side = "depth_chart_buy"
+            } else if (resting_side == "Sell") {
+                side = "depth_chart_sell"
+            }
+
+            
+            orderbooks[symbol][side][price] -= packet["amount"]
+
             change = (price - tickers[tickerID]) / tickers[tickerID];
+            console.log("pctID", pctID)
             pctele = document.getElementById(pctID);
             tickele = document.getElementById(tickerID);
             if (change < 0) {
-                change *= -1;
+                change *= -100;
                 change = '🔻' + change.toString() + '%';
                 pctele.className = 'pctdwn';
                 pctele.textContent = change;
             } else {
+                change *= 100;
                 change = '🔺' + change.toString() + '%';
                 pctele.className = 'pctup'
                 pctele.textContent = change;
@@ -1111,6 +1127,7 @@
             tickele.textContent = price;
             tickers[tickele] = price;
             recentPrices[symbol].push(price);
+            update_viz(symbol)
         }
 
 
@@ -1136,7 +1153,7 @@
         start_up_message = true;
         // receive a message from the server
         ws.onmessage = function (evt) {
-
+            console.log("message received!");
             
 
             data = evt.data;
@@ -1197,22 +1214,24 @@
 
                 if (packet["side"] == "Buy") {
                     console.log("updating buy side")
-                    orderbooks[symbol]["depth_chart_buy"][level] -= order_vol
+                    orderbooks[symbol]["depth_chart_buy"][price] -= order_vol
                 } else if (packet["side"] == "Sell") {
                     console.log("updating sell side")
-                    orderbooks[symbol]["depth_chart_sell"][level] -= order_vol
+                    orderbooks[symbol]["depth_chart_sell"][price] -= order_vol
                 }
                 if (sel.value() == symbol) {
                     update_viz(symbol);
                 }
             } else if (msg_type == "OrderConfirmMessage") {
-                const oi = packet[order_info];
-                addOrder(oi[symbol], oi[amount], oi[price], oi[order_type], oi[order_id]);
+                console.log("OrderConfirmMessage received")
+                
+                const oi = packet["order_info"];
+                addOrder(oi["symbol"], oi["amount"], oi["price"], oi["order_type"], oi["order_id"]);
             } else if (msg_type == "OrderFillMessage") {
-                convertOrder(packet[amount_filled], packet[order_id], packet[price])
+                convertOrder(packet["amount_filled"], packet["order_id"], packet["price"])
             } else if (msg_type == "CancelConfirmMessage") {
-                const oi = packet[order_info];
-                cancelOrder(oi[symbol], oi[amount], oi[price], oi[order_type], oi[order_id]);
+                const oi = packet["order_info"];
+                cancelOrder(oi["symbol"], oi["amount"], oi["price"], oi["order_type"], oi["order_id"]);
             } else if (msg_type == "CancelErrorMessage") {
                 error = document.createElement('div');
                 error.className = 'error';
