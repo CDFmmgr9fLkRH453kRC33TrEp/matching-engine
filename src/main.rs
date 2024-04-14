@@ -169,44 +169,44 @@ async fn main() -> std::io::Result<()> {
     // to do: add actix guards to confirm credit checks etc.
     // to do: move this declaration to macro_calls file to generate fields automatically
     let global_orderbook_state = config::GlobalOrderBookState {
-        JJS:Mutex::new(quickstart_order_book(config::TickerSymbol::JJS,0,11,10000,)),
-        iJJS:Mutex::new(quickstart_order_book(config::TickerSymbol::iJJS,0,11,10000,)), 
-        TS: Mutex::new(quickstart_order_book(config::TickerSymbol::TS,0,11,10000,)),
-        TT: Mutex::new(quickstart_order_book(config::TickerSymbol::TT,0,11,10000,)),
-        iTS: Mutex::new(quickstart_order_book(config::TickerSymbol::iTS,0,11,10000,)), 
-        iTT: Mutex::new(quickstart_order_book(config::TickerSymbol::iTT,0,11,10000,))
+        JJS:Mutex::new(quickstart_order_book(config::TickerSymbol::JJS,0,50,10000,)),
+        iJJS:Mutex::new(quickstart_order_book(config::TickerSymbol::iJJS,0,50,10000,)), 
+        TS: Mutex::new(quickstart_order_book(config::TickerSymbol::TS,0,50,10000,)),
+        TT: Mutex::new(quickstart_order_book(config::TickerSymbol::TT,0,50,10000,)),
+        iTS: Mutex::new(quickstart_order_book(config::TickerSymbol::iTS,0,50,10000,)), 
+        iTT: Mutex::new(quickstart_order_book(config::TickerSymbol::iTT,0,50,10000,))
     };
-
+ 
     // todo: abstract to config file, this is disgusting (see config.json -> build.rs -> config.rs)
     let global_account_state = config::GlobalAccountState {
         Columbia_A: Mutex::new(accounts::quickstart_trader_account(
             config::TraderId::Columbia_A,
-            100000,
+            10000,
             ['c', 'u', '_', 'a'],
         )),
         Columbia_B: Mutex::new(accounts::quickstart_trader_account(
             config::TraderId::Columbia_B,
-            100000,
+            10000,
             ['c', 'u', '_', 'b'],
         )),
         Columbia_C: Mutex::new(accounts::quickstart_trader_account(
             config::TraderId::Columbia_C,
-            100000,
+            10000,
             ['c', 'u', '_', 'c'],
         )),
         Columbia_D: Mutex::new(accounts::quickstart_trader_account(
             config::TraderId::Columbia_D,
-            100000,
+            10000,
             ['c', 'u', '_', 'd'],
         )),
         Columbia_Viz: Mutex::new(accounts::quickstart_trader_account(
             config::TraderId::Columbia_Viz,
-            100000,
+            10000,
             ['c', 'u', '_', 'v'],
         )),
         Price_Enforcer: Mutex::new(accounts::quickstart_trader_account(
             config::TraderId::Price_Enforcer,
-            100000,
+            10000,
             ['p', 'e', 'n', 'f'],
         )),
     };

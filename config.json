@@ -1,35 +1,35 @@
 {   
-    "max_price_cents": 10000,
+    "max_price_cents": 50,
     "assets": [
         {
             "symbol": "JJS",
             "long_name": "JJs Capacity",
-            "max_price_cents": 10000
+            "max_price_cents": 50
         },
         {
             "symbol": "TS",
             "long_name": "Times Square Webcam Brightness",
-            "max_price_cents": 10000
+            "max_price_cents": 50
         },
         {
             "symbol": "TT",
             "long_name": "Average wait for 1 train at 116th (closest 8 times)",
-            "max_price_cents": 10000
+            "max_price_cents": 50
         },
         {
             "symbol": "iJJS",
             "long_name": "Inverse JJs Capacity",
-            "max_price_cents": 10000
+            "max_price_cents": 50
         },
         {
             "symbol": "iTS",
             "long_name": "Inverse Times Square Webcam Brightness",
-            "max_price_cents": 10000
+            "max_price_cents": 50
         },
         {
             "symbol": "iTT",
             "long_name": "Inverse average wait for 1 train at 116th (closest 8 times)",
-            "max_price_cents": 10000
+            "max_price_cents": 50
         }
     ],
     "accounts": [
