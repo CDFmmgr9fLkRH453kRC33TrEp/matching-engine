@@ -22,7 +22,9 @@ use actix_broker::{ArbiterBroker, Broker, BrokerIssue, BrokerSubscribe, SystemBr
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(4);
 const CLIENT_TIMEOUT: Duration = Duration::from_secs(10);
 use crate::api_messages::{
-    self, CancelConfirmMessage, CancelErrorMessage, CancelRequest, IncomingMessage, OrderConfirmMessage, OrderFillMessage, OrderPlaceErrorMessage, OrderPlaceResponse, OrderRequest, OutgoingMessage, TradeOccurredMessage
+    self, CancelConfirmMessage, CancelErrorMessage, CancelRequest, IncomingMessage,
+    OrderConfirmMessage, OrderFillMessage, OrderPlaceErrorMessage, OrderPlaceResponse,
+    OrderRequest, OutgoingMessage, TradeOccurredMessage,
 };
 use crate::message_types::{CloseMessage, OpenMessage};
 use crate::orderbook::{Fill, TraderId};
@@ -60,7 +62,6 @@ use crate::config::GlobalOrderBookState;
 
 use ::serde::{de, Deserialize, Serialize};
 
-
 pub fn add_order<'a>(
     order_request: OrderRequest,
     data: &crate::config::GlobalOrderBookState,
@@ -79,12 +80,13 @@ pub fn add_order<'a>(
         // check if current cash balance - outstanding orders supports order
         // nevermind, as long as I acquire and hold a lock during the entire order placement attempt, it should be safe
         let cent_value = &order_request_inner.amount * &order_request_inner.price;
-        if (accounts_data
+        if ((accounts_data
             .index_ref(order_request_inner.trader_id)
             .lock()
             .unwrap()
             .net_cents_balance
             < cent_value)
+            && order_request_inner.trader_id != TraderId::Price_Enforcer)
         {
             return OrderPlaceResponse::OrderPlaceErrorMessage(OrderPlaceErrorMessage{
                 side: order_request_inner.order_type,
@@ -93,17 +95,19 @@ pub fn add_order<'a>(
                 error_details: "Error Placing Order: The total value of order is greater than current account balance"
             });
         }
-        accounts_data
-            .index_ref(order_request_inner.trader_id)
-            .lock()
-            .unwrap()
-            .net_cents_balance -= order_request_inner.price * order_request_inner.amount;
+        if (order_request_inner.trader_id != TraderId::Price_Enforcer) {
+            accounts_data
+                .index_ref(order_request_inner.trader_id)
+                .lock()
+                .unwrap()
+                .net_cents_balance -= order_request_inner.price * order_request_inner.amount;
+        }
     };
     if (order_request_inner.order_type == crate::orderbook::OrderType::Sell) {
         // ISSUE: This should decrement cents_balance to avoid racing to place two orders before updating cents_balance
         // check if current cash balance - outstanding orders supports order
         // nevermind, as long as I acquire and hold a lock during the entire order placement attempt, it should be safe
-        if (*accounts_data
+        if ((*accounts_data
             .index_ref(order_request_inner.trader_id)
             .lock()
             .unwrap()
@@ -112,6 +116,7 @@ pub fn add_order<'a>(
             .lock()
             .unwrap()
             < order_request_inner.amount)
+            && order_request_inner.trader_id != TraderId::Price_Enforcer)
         {
             debug!("Error: attempted short sell");
             return OrderPlaceResponse::OrderPlaceErrorMessage(OrderPlaceErrorMessage{
@@ -121,15 +126,16 @@ pub fn add_order<'a>(
                 error_details: "Error Placing Order: The total amount of this trade would take your account short"
             });
         }
-
-        *accounts_data
-            .index_ref(order_request_inner.trader_id)
-            .lock()
-            .unwrap()
-            .net_asset_balances
-            .index_ref(symbol)
-            .lock()
-            .unwrap() -= order_request_inner.amount;
+        if (order_request_inner.trader_id != TraderId::Price_Enforcer) {
+            *accounts_data
+                .index_ref(order_request_inner.trader_id)
+                .lock()
+                .unwrap()
+                .net_asset_balances
+                .index_ref(symbol)
+                .lock()
+                .unwrap() -= order_request_inner.amount;
+        }
     };
 
     debug!(
@@ -158,9 +164,8 @@ pub fn add_order<'a>(
     // jnj_orderbook.lock().unwrap().print_book_state();
     // ISSUE: need to borrow accounts as mutable without knowing which ones will be needed to be borrowed
     // maybe pass in immutable reference to entire account state, and only acquire the locks for the mutex's that it turns out we need
-    
-    
-    // Server Generated Order ID 
+
+    // Server Generated Order ID
     let order_id = order_counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
     let order = data
@@ -172,7 +177,7 @@ pub fn add_order<'a>(
             accounts_data,
             relay_server_addr,
             order_counter,
-            order_id
+            order_id,
         );
 
     // very gross, should deal with
@@ -206,7 +211,12 @@ pub fn cancel_order<'a>(
         .index_ref(symbol)
         .lock()
         .unwrap()
-        .handle_incoming_cancel_request(cancel_request_inner, order_counter, relay_server_addr, accounts_data);
+        .handle_incoming_cancel_request(
+            cancel_request_inner,
+            order_counter,
+            relay_server_addr,
+            accounts_data,
+        );
     // todo: add proper error handling/messaging
     // instead of returning none, this should return Result and I can catch it here to propagate up actix framework
     match order {
@@ -486,19 +496,20 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
             .lock()
             .unwrap()
             .message_backup;
-        
-        
+
+        debug!("Sending serialized orderbook state.");
+        debug!("{}", serde_json::to_string(&self.global_state.global_orderbook_state).unwrap());
+
         ctx.text(serde_json::to_string(&self.global_state.global_orderbook_state).unwrap());
-        
+
         // Message queue should support OrderFillMessage, not TradeOccurredMessage or Fill
         // to inform client side account state sync
 
-        while (message_queue.size() != 0) {            
+        while (message_queue.size() != 0) {
             let order_fill_msg = message_queue.remove().unwrap();
             let hack_msg = api_messages::OutgoingMessage::OrderFillMessage(*order_fill_msg);
             ctx.text(serde_json::to_string(&hack_msg).unwrap());
         }
-        debug!("Sending serialized orderbook state.");
         
     }
     // finished() function removes the trader account's actor addr
@@ -587,7 +598,10 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                                 }
                                 OrderPlaceResponse::OrderConfirmMessage(msg) => {
                                     // required for logging/state recovery in case of crashes
-                                    info!("ORDER DUMP: {}", serde_json::to_string(&order_req).unwrap());
+                                    info!(
+                                        "ORDER DUMP: {}",
+                                        serde_json::to_string(&order_req).unwrap()
+                                    );
 
                                     ctx.text(serde_json::to_string(&res).unwrap());
                                 }
@@ -645,7 +659,10 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                                     msg,
                                 ) => {
                                     // required for logging/state recovery in case of crashes
-                                    info!("CANCEL DUMP: {}", serde_json::to_string(&cancel_req).unwrap());
+                                    info!(
+                                        "CANCEL DUMP: {}",
+                                        serde_json::to_string(&cancel_req).unwrap()
+                                    );
 
                                     ctx.text(serde_json::to_string(&res).unwrap());
                                 }
@@ -657,7 +674,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                             }
                         };
                     }
-                    IncomingMessage::AccountInfoRequest(account_info_request) => {                        
+                    IncomingMessage::AccountInfoRequest(account_info_request) => {
                         let password_needed = self
                             .global_state
                             .global_account_state
@@ -672,11 +689,16 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                         } else {
                             // should basically just send back serialized TraderAccount
                             // need to attach all active order objects to TraderAccount in orderbook
-                            let account = self.global_state.global_account_state.index_ref(account_info_request.trader_id).lock().unwrap();
+                            let account = self
+                                .global_state
+                                .global_account_state
+                                .index_ref(account_info_request.trader_id)
+                                .lock()
+                                .unwrap();
                             // &* feels gross, not sure if there is a nicer/more performant solution
                             ctx.text(serde_json::to_string(&*account).unwrap())
                         }
-                    },
+                    }
                 }
             }
 

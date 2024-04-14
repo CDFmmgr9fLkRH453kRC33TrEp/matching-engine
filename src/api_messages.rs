@@ -119,6 +119,9 @@ pub struct TradeOccurredMessage {
     // should it ignore the buyer/seller who already got a message about the trade? -> no, this should be handled client side
     pub amount: usize,
     pub symbol: config::TickerSymbol,
+    
+    // side of resting order (i.e. opposite to incoming order, convenience for client side viz)
+    pub resting_side: OrderType,
     // price at which trade occurred (should be resting order's price)
     pub price: Price
 }

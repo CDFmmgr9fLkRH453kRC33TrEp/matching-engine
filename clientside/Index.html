@@ -1093,19 +1093,32 @@
         }
 
         function any_fill_evt(packet) {
-            symbol = packet[symbol];
-            price = packet[price];
+            symbol = packet["symbol"];
+            price = packet["price"];
             tickerID = symbol + 't';
             pctID = symbol + 'p';
+            resting_side = packet["resting_side"]
+            // update depth chart
+            if(resting_side == "Buy") {
+                side = "depth_chart_buy"
+            } else if (resting_side == "Sell") {
+                side = "depth_chart_sell"
+            }
+
+            
+            orderbooks[symbol][side][price] -= packet["amount"]
+
             change = (price - tickers[tickerID]) / tickers[tickerID];
+            console.log("pctID", pctID)
             pctele = document.getElementById(pctID);
             tickele = document.getElementById(tickerID);
             if (change < 0) {
-                change *= -1;
+                change *= -100;
                 change = '🔻' + change.toString() + '%';
                 pctele.className = 'pctdwn';
                 pctele.textContent = change;
             } else {
+                change *= 100;
                 change = '🔺' + change.toString() + '%';
                 pctele.className = 'pctup'
                 pctele.textContent = change;
@@ -1113,6 +1126,7 @@
             tickele.textContent = price;
             tickers[tickele] = price;
             recentPrices[symbol].push(price);
+            update_viz(symbol)
         }
 
 

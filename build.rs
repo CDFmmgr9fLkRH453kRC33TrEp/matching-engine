@@ -110,7 +110,7 @@ macro_rules! generate_ticker_enum {{
 
 macro_rules! generate_accounts_enum {{
     ([$($name:ident),*]) => {{
-        #[derive(Debug, Copy, Clone, Deserialize, Serialize, EnumIter)]
+        #[derive(Debug, Copy, Clone, Deserialize, Serialize, EnumIter, PartialEq)]
         pub enum TraderId {{
             $($name, )*
         }}

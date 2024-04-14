@@ -125,6 +125,7 @@ pub struct Fill {
     pub price: Price,
     pub symbol: config::TickerSymbol,
     pub trade_time: u8,
+    pub resting_side: OrderType
 }
 impl Message for Fill {
     type Result = ();
@@ -319,6 +320,7 @@ fn add_order_to_book(
                             amount: amount_to_be_traded,
                             price: trade_price,
                             trade_time: 1,
+                            resting_side: OrderType::Buy,
                         }),
                         relay_server_addr,
                         buy_trader_order_id,
@@ -484,6 +486,7 @@ fn add_order_to_book(
                             amount: amount_to_be_traded,
                             price: trade_price,
                             trade_time: 1,
+                            resting_side: OrderType::Sell,
                         }),
                         relay_server_addr,
                         order_id,
@@ -646,7 +649,8 @@ fn add_order_to_book(
             TradeOccurredMessage {
                 amount: fill_event.amount, 
                 symbol: fill_event.symbol,
-                price: fill_event.price
+                price: fill_event.price,
+                resting_side: fill_event.resting_side,
             }
         ));
 
