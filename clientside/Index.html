@@ -371,8 +371,10 @@
             border: 1px solid lightgray;
         }
 
+        
+
         option {
-            font-family: 'IBM Plex Sans Condensed';
+            font-family: 'IBM Plex Sans Condensed', 'Arial Narrow';
         }
 
 
@@ -951,7 +953,13 @@
             // case where user already put in their info and reloaded or something
             console.log("localStorage usable")
             ws = new WebSocket("ws://10.207.51.247:4000/orders/ws", [username])
-            document.getElementById("user").textContent = data.get("username");
+            ws.onmessage = function(evt) {
+                handler(evt);
+            }
+            ws.onclose = function() {
+                closer();
+            }
+            document.getElementById("user").textContent = username;
             document.getElementById("connection").textContent = "Connected 🟢";
         }
 
@@ -968,6 +976,12 @@
             // super hack-y, but I think this is the simplest way
             // https://stackoverflow.com/questions/4361173/http-headers-in-websockets-client-api
             ws = new WebSocket("ws://10.207.51.247:4000/orders/ws", [username])
+            ws.onmessage = function(evt) {
+                handler(evt);
+            }
+            ws.onclose = function() {
+                closer();
+            }
             document.getElementById("connection").textContent = "Connected 🟢";
             event.preventDefault;
         }
@@ -1157,7 +1171,7 @@
 
         start_up_message = true;
         // receive a message from the server
-        ws.onmessage = function (evt) {
+        function handler(evt) {
             console.log("message received!");
             
 
@@ -1260,7 +1274,7 @@
                 updateplots();
         }
 
-        ws.onclose = function () {
+        function closer() {
             // websocket is closed.
             console.log("WS Conn closed :(")
             document.getElementById("connection").textContent = "Not Connected 🔴";
