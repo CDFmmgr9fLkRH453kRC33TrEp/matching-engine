@@ -45,7 +45,7 @@ fn main() {
     ]
     ";
 
-    let out_dir = "/Users/caidan/projects/exchange_simulator/matching-engine/src";
+    let out_dir = "C:/CGMDProject/matching-engine/src";
     let dest_path = Path::new(&out_dir).join("config.rs");
     let mut f = File::create(&dest_path).unwrap();
     let content = format!(

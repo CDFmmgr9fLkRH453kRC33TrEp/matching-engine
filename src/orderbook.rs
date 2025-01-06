@@ -25,7 +25,7 @@ pub type Price = usize;
 pub type TraderId = config::TraderId;
 // for loading csv test files
 // use std::env;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use std::error::Error;
 use std::ffi::OsString;
 use std::fs::File;
@@ -78,9 +78,9 @@ pub struct OrderBook {
     // todo: add offset to allow for non 0 min prices
     pub symbol: config::TickerSymbol,
     // buy side in increasing price order
-    buy_side_limit_levels: Vec<LimitLevel>,
+    buy_side_limit_levels: LimitVec,
     // sell side in increasing price order
-    sell_side_limit_levels: Vec<LimitLevel>,
+    sell_side_limit_levels: LimitVec,
     current_high_buy_price: Price,
     current_low_sell_price: Price,
 
@@ -99,6 +99,23 @@ struct LimitLevel {
     orders: Vec<Order>,
     total_volume: usize,
 }
+
+#[derive(Debug, Clone, Deserialize)]
+struct LimitVec(Vec<LimitLevel>);
+
+impl Serialize for LimitVec {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // Filter out LimitLevel structs with empty orders array
+        let filtered: Vec<&LimitLevel> = self.0.iter().filter(|level| !level.orders.is_empty()).collect();
+        
+        // Serialize the filtered Vec<LimitLevel>
+        filtered.serialize(serializer)
+    }
+}
+
 
 #[derive(Debug, Clone, Serialize, Copy, Deserialize)]
 pub struct Order {
@@ -155,7 +172,7 @@ fn add_order_to_book(
                 if self.current_high_buy_price < new_order.price {
                     self.current_high_buy_price = new_order.price;
                 };
-                self.buy_side_limit_levels[new_order.price]
+                self.buy_side_limit_levels.0[new_order.price]
                     .orders
                     .push(new_order.clone());
             }
@@ -163,7 +180,7 @@ fn add_order_to_book(
                 if self.current_low_sell_price > new_order.price {
                     self.current_low_sell_price = new_order.price;
                 };
-                self.sell_side_limit_levels[new_order.price]
+                self.sell_side_limit_levels.0[new_order.price]
                     .orders
                     .push(new_order.clone());
             }
@@ -185,14 +202,14 @@ fn add_order_to_book(
             OrderType::Buy => {
                 let mut index = 0;
                 while index
-                    < self.buy_side_limit_levels[cancel_request.price]
+                    < self.buy_side_limit_levels.0[cancel_request.price]
                         .orders
                         .len()
                 {
-                    if self.buy_side_limit_levels[cancel_request.price].orders[index].order_id
+                    if self.buy_side_limit_levels.0[cancel_request.price].orders[index].order_id
                         == cancel_request.order_id
                     {
-                        let canceled_order = self.buy_side_limit_levels[cancel_request.price]
+                        let canceled_order = self.buy_side_limit_levels.0[cancel_request.price]
                                 .orders
                                 .remove(index);
                         relay_server_addr.do_send(Arc::new(OutgoingMessage::CancelOccurredMessage(CancelOccurredMessage{
@@ -211,15 +228,15 @@ fn add_order_to_book(
             OrderType::Sell => {
                 let mut index = 0;
                 while index
-                    < self.sell_side_limit_levels[cancel_request.price]
+                    < self.sell_side_limit_levels.0[cancel_request.price]
                         .orders
                         .len()
                 {
-                    if self.sell_side_limit_levels[cancel_request.price].orders[index].order_id
+                    if self.sell_side_limit_levels.0[cancel_request.price].orders[index].order_id
                         == cancel_request.order_id
                     {
                         let canceled_order = 
-                            self.sell_side_limit_levels[cancel_request.price]
+                            self.sell_side_limit_levels.0[cancel_request.price]
                                 .orders
                                 .remove(index);
                             
@@ -288,24 +305,24 @@ fn add_order_to_book(
             let mut current_price_level = self.current_high_buy_price;
             while (sell_order.amount > 0) & (current_price_level >= sell_order.price) {
                 // println!("amount to be filled remaining: {:?}", sell_order.amount);
-                // println!("current price level: {:?}", self.buy_side_limit_levels
+                // println!("current price level: {:?}", self.buy_side_limit_levels.0
                 // [current_price_level].price);
                 // self.print_book_state();
-                // println!("current price level orders: {:?}", self.buy_side_limit_levels[current_price_level].orders);
+                // println!("current price level orders: {:?}", self.buy_side_limit_levels.0[current_price_level].orders);
                 // let mut order_index = 0;
-                while (self.buy_side_limit_levels[current_price_level].orders.len() > 0)
+                while (self.buy_side_limit_levels.0[current_price_level].orders.len() > 0)
                     & (sell_order.amount > 0)
                 {
                     let trade_price =
-                        self.buy_side_limit_levels[current_price_level].orders[0].price;
+                        self.buy_side_limit_levels.0[current_price_level].orders[0].price;
                     let buy_trader_id =
-                        self.buy_side_limit_levels[current_price_level].orders[0].trader_id;
+                        self.buy_side_limit_levels.0[current_price_level].orders[0].trader_id;
 
-                    let buy_trader_order_id = self.buy_side_limit_levels[current_price_level].orders[0].order_id;
+                    let buy_trader_order_id = self.buy_side_limit_levels.0[current_price_level].orders[0].order_id;
 
                     let amount_to_be_traded = cmp::min(
                         sell_order.amount,
-                        self.buy_side_limit_levels[current_price_level].orders[0].amount,
+                        self.buy_side_limit_levels.0[current_price_level].orders[0].amount,
                     );
 
                     let buy_trader = accounts_data.index_ref(buy_trader_id);
@@ -328,27 +345,27 @@ fn add_order_to_book(
                     );
 
                     sell_order.amount -= amount_to_be_traded;
-                    self.buy_side_limit_levels[current_price_level].orders[0].amount -=
+                    self.buy_side_limit_levels.0[current_price_level].orders[0].amount -=
                         amount_to_be_traded;
                     // warn!(
                     //     "Buy side @price {:?} total_volume: {:?}",
                     //     current_price_level,
-                    //     self.buy_side_limit_levels[current_price_level].total_volume
+                    //     self.buy_side_limit_levels.0[current_price_level].total_volume
                     // );
                     // warn!("Amount to be traded: {:?}", amount_to_be_traded);
-                    self.buy_side_limit_levels[current_price_level].total_volume -=
+                    self.buy_side_limit_levels.0[current_price_level].total_volume -=
                         amount_to_be_traded;
                     // debug!(
                     //     "orders: {:?}",
-                    //     self.sell_side_limit_levels[current_price_level].orders
+                    //     self.sell_side_limit_levels.0[current_price_level].orders
                     // );
                     debug!("limit level: {:?}", current_price_level);
-                    if self.buy_side_limit_levels[current_price_level].orders[0].amount == 0 {
+                    if self.buy_side_limit_levels.0[current_price_level].orders[0].amount == 0 {
                         // should remove from counterparty's active order list
-                        let mut counter_party = accounts_data.index_ref(self.buy_side_limit_levels[current_price_level].orders[0].trader_id).lock().unwrap();
-                        counter_party.active_orders.retain(|&x| x.order_id != self.buy_side_limit_levels[current_price_level].orders[0].order_id);
+                        let mut counter_party = accounts_data.index_ref(self.buy_side_limit_levels.0[current_price_level].orders[0].trader_id).lock().unwrap();
+                        counter_party.active_orders.retain(|&x| x.order_id != self.buy_side_limit_levels.0[current_price_level].orders[0].order_id);
                         
-                        self.buy_side_limit_levels[current_price_level]
+                        self.buy_side_limit_levels.0[current_price_level]
                             .orders
                             .remove(0);
                     }
@@ -357,7 +374,7 @@ fn add_order_to_book(
                     // issue async is the culprit hanging up performance
                     // relay_server_addr.do_send(LimLevUpdate {
                     //     level: current_price_level,
-                    //     total_order_vol: self.buy_side_limit_levels[current_price_level]
+                    //     total_order_vol: self.buy_side_limit_levels.0[current_price_level]
                     //         .total_volume,
                     //     side: OrderType::Buy,
                     //     symbol: self.symbol,
@@ -374,7 +391,7 @@ fn add_order_to_book(
             current_price_level += 1;
 
             while current_price_level > 0 {
-                if self.buy_side_limit_levels[current_price_level].orders.len() > 0 {
+                if self.buy_side_limit_levels.0[current_price_level].orders.len() > 0 {
                     self.current_high_buy_price = current_price_level;
                     break;
                 }
@@ -390,7 +407,7 @@ fn add_order_to_book(
             let mut account = accounts_data.index_ref(sell_order.trader_id).lock().unwrap();
             account.active_orders.push(resting_order);
             
-            self.sell_side_limit_levels[sell_order.price].total_volume += sell_order.amount;
+            self.sell_side_limit_levels.0[sell_order.price].total_volume += sell_order.amount;
             // self.print_book_state();
             // issue async is the culprit hanging up performance
             
@@ -405,7 +422,7 @@ fn add_order_to_book(
 
             // relay_server_addr.do_send(LimLevUpdate {
             //     level: sell_order.price,
-            //     total_order_vol: self.sell_side_limit_levels[sell_order.price].total_volume,
+            //     total_order_vol: self.sell_side_limit_levels.0[sell_order.price].total_volume,
             //     side: OrderType::Sell,
             //     symbol: self.symbol,
             //     timestamp: SystemTime::now()
@@ -454,7 +471,7 @@ fn add_order_to_book(
             let mut current_price_level = self.current_low_sell_price;
             while (buy_order.amount > 0) & (current_price_level <= buy_order.price) {
                 // let mut order_index = 0;
-                while (0 < self.sell_side_limit_levels[current_price_level]
+                while (0 < self.sell_side_limit_levels.0[current_price_level]
                     .orders
                     .len())
                     & (buy_order.amount > 0)
@@ -462,16 +479,16 @@ fn add_order_to_book(
                     debug!("remain to fill {:?}", buy_order.amount);
                     // debug!(
                     //     "{:?}",
-                    //     self.sell_side_limit_levels[current_price_level].orders
+                    //     self.sell_side_limit_levels.0[current_price_level].orders
                     // );
                     let trade_price =
-                        self.sell_side_limit_levels[current_price_level].orders[0].price;
+                        self.sell_side_limit_levels.0[current_price_level].orders[0].price;
                     let sell_trader_id =
-                        self.sell_side_limit_levels[current_price_level].orders[0].trader_id;
+                        self.sell_side_limit_levels.0[current_price_level].orders[0].trader_id;
 
                     let amount_to_be_traded = cmp::min(
                         buy_order.amount,
-                        self.sell_side_limit_levels[current_price_level].orders[0].amount,
+                        self.sell_side_limit_levels.0[current_price_level].orders[0].amount,
                     );
                     // could turn this into an associated function which does not need a reference to the orderbook, but I think its fine.
                     let buy_trader = accounts_data.index_ref(buy_order.trader_id);
@@ -490,22 +507,22 @@ fn add_order_to_book(
                         }),
                         relay_server_addr,
                         order_id,
-                        self.sell_side_limit_levels[current_price_level].orders[0].order_id
+                        self.sell_side_limit_levels.0[current_price_level].orders[0].order_id
                     );
 
                     // TODO: create "sell" function that can handle calls to allocate credit etc.
                     // also removing from the front seems pretty inefficient,
                     buy_order.amount -= amount_to_be_traded;
-                    self.sell_side_limit_levels[current_price_level].orders[0].amount -=
+                    self.sell_side_limit_levels.0[current_price_level].orders[0].amount -=
                         amount_to_be_traded;
-                    self.sell_side_limit_levels[current_price_level].total_volume -=
+                    self.sell_side_limit_levels.0[current_price_level].total_volume -=
                         amount_to_be_traded;
 
 
-                    if self.sell_side_limit_levels[current_price_level].orders[0].amount == 0 {
-                        let mut counter_party = accounts_data.index_ref(self.sell_side_limit_levels[current_price_level].orders[0].trader_id).lock().unwrap();
-                        counter_party.active_orders.retain(|&x| x.order_id != self.sell_side_limit_levels[current_price_level].orders[0].order_id);
-                        self.sell_side_limit_levels[current_price_level]
+                    if self.sell_side_limit_levels.0[current_price_level].orders[0].amount == 0 {
+                        let mut counter_party = accounts_data.index_ref(self.sell_side_limit_levels.0[current_price_level].orders[0].trader_id).lock().unwrap();
+                        counter_party.active_orders.retain(|&x| x.order_id != self.sell_side_limit_levels.0[current_price_level].orders[0].order_id);
+                        self.sell_side_limit_levels.0[current_price_level]
                             .orders
                             .remove(0);
                     }
@@ -514,7 +531,7 @@ fn add_order_to_book(
                     // // issue async is the culprit hanging up performance
                     // relay_server_addr.do_send(LimLevUpdate {
                     //     level: current_price_level,
-                    //     total_order_vol: self.sell_side_limit_levels[current_price_level]
+                    //     total_order_vol: self.sell_side_limit_levels.0[current_price_level]
                     //         .total_volume,
                     //     side: OrderType::Sell,
                     //     symbol: self.symbol,
@@ -529,8 +546,8 @@ fn add_order_to_book(
             }
             current_price_level -= 1;
             // in the event that a price level has been completely bought, update lowest sell price
-            while current_price_level < self.sell_side_limit_levels.len() {
-                if self.sell_side_limit_levels[current_price_level]
+            while current_price_level < self.sell_side_limit_levels.0.len() {
+                if self.sell_side_limit_levels.0[current_price_level]
                     .orders
                     .len()
                     > 0
@@ -550,13 +567,13 @@ fn add_order_to_book(
             account.active_orders.push(resting_order);
             // self.print_book_state();
             debug!(
-                "Increasing total_volume on buy_side_limit_levels @ price {:?}",
+                "Increasing total_volume on buy_side_limit_levels.0 @ price {:?}",
                 buy_order.price
             );
-            self.buy_side_limit_levels[buy_order.price].total_volume += buy_order.amount;
+            self.buy_side_limit_levels.0[buy_order.price].total_volume += buy_order.amount;
             debug!(
-                " total_volume on buy_side_limit_levels @ price {:?}: {:?}",
-                buy_order.price, self.buy_side_limit_levels[buy_order.price].total_volume
+                " total_volume on buy_side_limit_levels.0 @ price {:?}: {:?}",
+                buy_order.price, self.buy_side_limit_levels.0[buy_order.price].total_volume
             );
             debug!("Sending NewRestingOrderMessage to relay server");
             // issue async is the culprit hanging up performance
@@ -673,13 +690,13 @@ fn add_order_to_book(
     pub fn get_book_state(&self) -> String {
         debug!("Getting book state!");
         let mut ret_string = String::from("{[");
-        for price_level_index in 0..self.buy_side_limit_levels.len() {
+        for price_level_index in 0..self.buy_side_limit_levels.0.len() {
             let mut outstanding_sell_orders: usize = 0;
             let mut outstanding_buy_orders: usize = 0;
-            for order in self.sell_side_limit_levels[price_level_index].orders.iter() {
+            for order in self.sell_side_limit_levels.0[price_level_index].orders.iter() {
                 outstanding_sell_orders += order.amount;
             }
-            for order in self.buy_side_limit_levels[price_level_index].orders.iter() {
+            for order in self.buy_side_limit_levels.0[price_level_index].orders.iter() {
                 outstanding_buy_orders += order.amount;
             }
             // let mut string_out = String::from("");
@@ -702,13 +719,13 @@ fn add_order_to_book(
 
     pub fn print_book_state(&self) {
         debug!("Orderbook for {:?}", self.symbol);
-        for price_level_index in 0..self.buy_side_limit_levels.len() {
+        for price_level_index in 0..self.buy_side_limit_levels.0.len() {
             let mut outstanding_sell_orders: usize = 0;
             let mut outstanding_buy_orders: usize = 0;
-            for order in self.sell_side_limit_levels[price_level_index].orders.iter() {
+            for order in self.sell_side_limit_levels.0[price_level_index].orders.iter() {
                 outstanding_sell_orders += order.amount;
             }
-            for order in self.buy_side_limit_levels[price_level_index].orders.iter() {
+            for order in self.buy_side_limit_levels.0[price_level_index].orders.iter() {
                 outstanding_buy_orders += order.amount;
             }
             let mut string_out = String::from("");
@@ -720,7 +737,7 @@ fn add_order_to_book(
             }
             debug!(
                 "${}: {}",
-                self.buy_side_limit_levels[price_level_index].price, string_out
+                self.buy_side_limit_levels.0[price_level_index].price, string_out
             );
             // book_ouput[price_level_index] = outstanding_orders;
         }
@@ -745,20 +762,20 @@ pub fn quickstart_order_book(
 ) -> OrderBook {
     OrderBook {
         symbol: config::TickerSymbol::from(symbol),
-        buy_side_limit_levels: (min_price..max_price)
+        buy_side_limit_levels: LimitVec((min_price..max_price)
             .map(|x| LimitLevel {
                 price: x,
                 orders: Vec::with_capacity(capacity_per_lim_lev),
                 total_volume: 0,
             })
-            .collect(),
-        sell_side_limit_levels: (min_price..max_price)
+            .collect()),
+        sell_side_limit_levels: LimitVec((min_price..max_price)
             .map(|x| LimitLevel {
                 price: x,
                 orders: Vec::with_capacity(capacity_per_lim_lev),
                 total_volume: 0,
             })
-            .collect(),
+            .collect()),
         current_high_buy_price: min_price,
         current_low_sell_price: max_price,
         running_orders_total: 0,

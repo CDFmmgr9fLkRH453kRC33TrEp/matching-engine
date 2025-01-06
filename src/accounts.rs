@@ -88,9 +88,9 @@ pub fn quickstart_trader_account(
     password: Password,
 ) -> TraderAccount {
     TraderAccount {
-        trader_id: trader_id,
+        trader_id,
         // trader_ip: trader_ip,
-        cents_balance: cents_balance,
+        cents_balance,
         net_cents_balance: cents_balance,
         message_backup: queues::Queue::<Arc<crate::api_messages::OrderFillMessage>>::new(),
         // asset_balances, net_asset_balances updated on fill event, and so should be current
@@ -99,7 +99,7 @@ pub fn quickstart_trader_account(
         // in cents
         net_asset_balances: config::AssetBalances::new(),
         current_actor: None,
-        password: password,
+        password,
         // exact initial capacity should be abstracted to config file
         active_orders: Vec::with_capacity(10000),
     }

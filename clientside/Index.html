@@ -952,7 +952,7 @@
         if ((username != null) && (password != null)) {
             // case where user already put in their info and reloaded or something
             console.log("localStorage usable")
-            ws = new WebSocket("ws://10.207.51.247:4000/orders/ws", [username])
+            ws = new WebSocket("ws://172.23.112.1:4000/orders/ws", [username])
             ws.onmessage = function(evt) {
                 handler(evt);
             }
@@ -975,7 +975,7 @@
             localStorage.setItem("cap_exchange_password", password)
             // super hack-y, but I think this is the simplest way
             // https://stackoverflow.com/questions/4361173/http-headers-in-websockets-client-api
-            ws = new WebSocket("ws://10.207.51.247:4000/orders/ws", [username])
+            ws = new WebSocket("ws:172.23.112.1:4000/orders/ws", [username])
             ws.onmessage = function(evt) {
                 handler(evt);
             }
