@@ -68,6 +68,7 @@ pub fn add_order<'a>(
     accounts_data: &crate::config::GlobalAccountState,
     relay_server_addr: &web::Data<Addr<crate::connection_server::Server>>,
     order_counter: &web::Data<Arc<AtomicUsize>>,
+    start_time: &web::Data<SystemTime>
 ) -> OrderPlaceResponse<'a> {
     debug!("Add Order Triggered!");
 
@@ -115,7 +116,8 @@ pub fn add_order<'a>(
             .index_ref(symbol)
             .lock()
             .unwrap()
-            < order_request_inner.amount)
+            + 1000 // allow 1000 shares
+            < <usize as TryInto<i64>>::try_into(order_request_inner.amount).unwrap())
             && order_request_inner.trader_id != TraderId::Price_Enforcer)
         {
             debug!("Error: attempted short sell");
@@ -123,7 +125,7 @@ pub fn add_order<'a>(
                 side: order_request_inner.order_type,
                 price: order_request_inner.price,
                 symbol: order_request_inner.symbol,
-                error_details: "Error Placing Order: The total amount of this trade would take your account short"
+                error_details: "Error Placing Order: The total amount of this trade would take your account over 1000 shares short"
             });
         }
         if (order_request_inner.trader_id != TraderId::Price_Enforcer) {
@@ -134,7 +136,7 @@ pub fn add_order<'a>(
                 .net_asset_balances
                 .index_ref(symbol)
                 .lock()
-                .unwrap() -= order_request_inner.amount;
+                .unwrap() -= <usize as TryInto<i64>>::try_into(order_request_inner.amount).unwrap();
         }
     };
 
@@ -178,6 +180,7 @@ pub fn add_order<'a>(
             relay_server_addr,
             order_counter,
             order_id,
+            start_time
         );
 
     // very gross, should deal with
@@ -241,7 +244,7 @@ pub fn cancel_order<'a>(
                         .net_asset_balances
                         .index_ref(&inner.symbol)
                         .lock()
-                        .unwrap() += inner.amount
+                        .unwrap() +=  <usize as TryInto<i64>>::try_into(inner.amount).unwrap()
                 }
             }
             return crate::api_messages::OrderCancelResponse::CancelConfirmMessage(
@@ -557,6 +560,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                                 &self.global_state.global_account_state,
                                 &self.relay_server_addr,
                                 &self.order_counter,
+                                &self.start_time
                             );
 
                             let t_elp = t_start_o.elapsed().unwrap();
@@ -675,6 +679,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                         };
                     }
                     IncomingMessage::AccountInfoRequest(account_info_request) => {
+                        debug!("Received AccountInfoRequest");
                         let password_needed = self
                             .global_state
                             .global_account_state
@@ -699,17 +704,18 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for MyWebSocketActor 
                             ctx.text(serde_json::to_string(&*account).unwrap())
                         }
                     }
+                    IncomingMessage::GameStateRequest => {ctx.text(serde_json::to_string(&self.global_state.global_orderbook_state).unwrap());}
                 }
             }
 
             // Ping/Pong will be used to make sure the connection is still alive
             Ok(ws::Message::Ping(msg)) => {
                 self.hb = Instant::now();
-                // info!("Ping Received");
+                info!("Ping Received");
                 ctx.pong(&msg);
             }
             Ok(ws::Message::Pong(_)) => {
-                // info!("Pong Received");
+                info!("Pong Received");
                 self.hb = Instant::now();
             }
             // Text will echo any text received back to the client (for now)

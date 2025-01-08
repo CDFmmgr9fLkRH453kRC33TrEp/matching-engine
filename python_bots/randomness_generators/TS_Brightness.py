@@ -7,14 +7,35 @@ import math
 import random
 #import statistics
 
-file = open('TS_data', 'a+')
-
 def calculate_average_pixel_value(image_path):
     image = Image.open(image_path)
     image = image.convert('L')
     pixel_data = list(image.getdata())
     average_pixel_value = sum(pixel_data) / len(pixel_data)
     return average_pixel_value
+
+class TS:
+    def __init__(self):
+        self.hist = []
+        driver = webdriver.Edge()
+        driver.get("https://www.earthcam.com/usa/newyork/timessquare/?cam=tsrobo1")
+        self.livestream = driver.find_element(By.ID,value= 'videoPlayer_html5_api')
+
+    def pull(self):
+        self.livestream.screenshot("timessquare.png")
+        avg = calculate_average_pixel_value("timessquare.png")
+        self.hist.append(avg)
+        runavg = sum(self.hist) / len(self.hist)
+        return ((math.atan((avg - runavg) / 18) /  (math.pi)) + 0.5)*50
+
+
+
+
+
+'''
+file = open('TS_data', 'a+')
+
+
 
 #y_vals = []
 #x_vals = []
@@ -49,3 +70,4 @@ file.close()
 #plt.xlabel('Time')
 #plt.ylabel('Avg Brightness')
 #plt.show()
+'''

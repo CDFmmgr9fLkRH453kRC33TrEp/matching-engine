@@ -19,6 +19,7 @@ plotters = "0.3"
 serde = { version = "1", features = ["derive"]}
 openssl = { version = "0.10", features = ["vendored"] }
 
+
 # server dependencies
 actix-web = "4"
 serde_json = {version = "1.0"}

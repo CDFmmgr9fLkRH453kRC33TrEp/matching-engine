@@ -5,8 +5,32 @@ from PIL import Image
 import matplotlib.pyplot as plt
 import math
 import random
-#doesn't account for time = "now", but that ends up adding more variance
 
+class TT:
+    def __init__(self):
+        self.driver = webdriver.Edge()
+        self.driver.get("https://realtimerail.nyc/stops/117")
+        self.hist = []
+
+    def pull(self):
+        myl = []
+        times = self.driver.find_elements \
+            (By.CLASS_NAME, value= "time")
+        for n in range(len(times)):
+            myl.append(int("0" + "".join \
+                ([s for s in times[n].text if s.isdigit()])))
+        avg = sum(myl) / len(myl)
+        self.hist.append(avg)
+        runavg = sum(self.hist) / len(self.hist)
+        self.driver.refresh()
+        return (((math.atan((avg - runavg) / 6) /  (math.pi)) + 0.5)*50) 
+
+
+
+
+
+'''
+#doesn't account for time = "now", but that ends up adding more variance
 file = open('Train_data','a+')
 ifile = open('iTrain_data','a+')
 driver = webdriver.Edge()
@@ -45,3 +69,4 @@ ifile.close()
 #plt.xlabel('Time')
 #plt.ylabel('Avg Arrival')
 #plt.show()
+'''

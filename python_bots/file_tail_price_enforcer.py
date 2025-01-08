@@ -1,80 +1,114 @@
 import asyncio
 import os
 import websockets
-from watchfiles import awatch
 import json
 import argparse
 import numpy as np
+import threading
+import time
+import random
 
-parser = argparse.ArgumentParser()
+#move the normalization into this file (the running average/arctan/etc...)
 
-parser.add_argument('--symbol', type=str, required=True)
-parser.add_argument('--amt', type=str, required=True)
+websocket_uri = "ws://127.0.0.1:4000/orders/ws"
 
-args = parser.parse_args()
+#{symbol: [filename, avg frequency (s), dist, amt (total shares?)]
+settings = {
+    #"JJs" : [None, 15, "flat", 400],
+    "TT" : [None, 15, "flat", 400],
+    "TS" : [None, 15, "flat", 400],
+    #"AD" : [None, 15, "flat", 400],
+}
 
-max_price = 10
+def bot_lookup(name):
+    match name:
+        case "JJs":
+            from randomness_generators import JJs_Capacity
+            return JJs_Capacity.JJs()
+        case "TT":
+            from randomness_generators import TrainTime_Avg
+            return TrainTime_Avg.TT()
+        case "AD":
+            from randomness_generators import Audio_RNG
+            return Audio_RNG.AD()
+        case "TS":
+            from randomness_generators import TS_Brightness
+            return TS_Brightness.TS()
 
-# todo: implement flat, normal, bimodal, delta, smile and see what is the most fun
-def generate_gaussian(min, max, mean, var):
-    out_arr =  np.arange(min + 1, max - 1)
-    # norm_pdf = lambda index: 1/((2 * 3.1415 * var)**0.5) * np.exp(-0.5 *)
-    return 
+# todo: implement bimodal, delta, smile and see what is the most fun
+def gen_dist(dist, amt):
+    match dist:
+        case "flat":
+            return [amt // 100] * 100
+        case "normal":
+            indices = np.arange(100)
+            #15 is std dev, can play around with it
+            normal_values = np.exp(-(indices - 50) ** 2 / (2 * 15 ** 2))
+            normal_values *=  (amt / normal_values.sum())
+            return normal_values.astype(int)
 
+async def place_order(ws, price, dist, amt, symbol):
+    amts = gen_dist(dist, amt)
 
-async def tail_file_and_send_message(file_path, websocket_uri):
-    async def send_message(price, ws):
-        # because we dont allow shorts (or do so via inversed products)
-        # I dont think we need sell orders for price enforcement?
-        # print("sending buy order at price")
+    for i in range(0, 50):
+        jsonreq = {
+            'MessageType' : "OrderRequest",
+            'OrderType': "Sell",
+            'Amount': amts[i],
+            'Price': int(i + price - 50),
+            'Symbol': symbol,
+            'TraderId': "Price_Enforcer",
+            'Password': list("penf")
+        }
+    await ws.send(json.dumps(jsonreq))
 
-        for lev in range(1, max_price):
-            if lev < price:
-                jsonreq = {
-                    'MessageType' : "OrderRequest",
-                    'OrderType': "Sell",
-                    'Amount': int(args.amt),
-                    'Price': lev,
-                    'Symbol': args.symbol,
-                    'TraderId': "Price_Enforcer",
-                    'Password': list("penf")
-                }
-                await ws.send(json.dumps(jsonreq))
             
-            elif lev > price:
-                jsonreq = {
-                    'MessageType' : "OrderRequest",
-                    'OrderType': "Buy",
-                    'Amount': int(args.amt),
-                    'Price': lev,
-                    'Symbol': args.symbol,
-                    'TraderId': "Price_Enforcer",
-                    'Password': list("penf")
-                }
-                await ws.send(json.dumps(jsonreq))
-                
-            
+    for i in range(51, 101):
+            jsonreq = {
+                'MessageType' : "OrderRequest",
+                'OrderType': "Buy",
+                'Amount': amts[i - 1],
+                'Price': int(i + price - 50),
+                'Symbol': symbol,
+                'TraderId': "Price_Enforcer",
+                'Password': list("penf")
+            }
+    await ws.send(json.dumps(jsonreq))
 
-    try:
-        # Establish WebSocket connection
-        async with websockets.connect(websocket_uri, extra_headers = {"Sec-WebSocket-Protocol":"Price_Enforcer"}) as ws:
-            # Watch for changes in the file
-            async for changes in awatch(file_path):
-                for action, _ in changes:
-                    print("action", action)
-                    with open(file_path, "r") as file:
-                        new_line = file.readlines()[-1].strip()
-                        print(new_line)
-                        await send_message(int(new_line), ws)
+class from_file:
+    #should the file store the time stamps for each entry?
+    def __init__(self, fname):
+        self.file = open(fname, 'rb')
+    def pull(self):
+        line = self.file.readline()
+        if not line:
+            self.file.seek(0)
+            line = self.file.readline()
+        return float(line.strip())
 
-    except KeyboardInterrupt:
-        pass
+async def price_bot(key, ws):
+    fname, interval, dist, amt = settings[key]
+    
+    rng = from_file(fname) if fname else bot_lookup(key)
+
+    while(True):
+        await asyncio.sleep(abs(random.gauss(interval, interval / 3)))
+        await place_order(ws, rng.pull(), dist, amt, key)
+
+
+async def main():
+    async with websockets.connect(websocket_uri, extra_headers = {"Sec-WebSocket-Protocol":"Price_Enforcer"}) as ws:
+        tasks = []
+        
+        for key in settings:
+            task = asyncio.create_task(price_bot(key, ws))
+            tasks.append(task)
+        
+        #seems like waiting for threads to finish blocks the ws from
+        #responding to ping messages.
+        while(1):
+            await ws.recv()
+
 
 if __name__ == "__main__":
-    # Replace "ws://your_websocket_server" with the actual WebSocket server URI
-    websocket_uri = "ws://10.207.51.247:4000/orders/ws"
-    
-    # Replace "path/to/your/file.log" with the actual path to the file you want to tail
-    file_path = "/Users/caidan/projects/exchange_simulator/matching-engine/python_bots/file.log"
-
-    asyncio.run(tail_file_and_send_message(file_path, websocket_uri))
+    asyncio.run(main())

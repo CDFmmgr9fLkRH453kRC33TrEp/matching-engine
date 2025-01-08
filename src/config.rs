@@ -101,11 +101,11 @@ macro_rules! generate_account_balances_struct {
     ([$($name:ident),*]) => {
         #[derive(Debug, Serialize, Deserialize)]
         pub struct AssetBalances {
-            $($name: Mutex<usize>, )*
+            $($name: Mutex<i64>, )*
         }    
 
         impl AssetBalances {
-            pub fn index_ref (&self, symbol:&TickerSymbol) -> &Mutex<usize>{
+            pub fn index_ref (&self, symbol:&TickerSymbol) -> &Mutex<i64>{
                 match symbol {
                     $(TickerSymbol::$name => {&self.$name}, )*
                 }

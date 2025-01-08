@@ -48,6 +48,8 @@ use config::GlobalOrderBookState;
 
 use rev_lines::RevLines;
 
+
+
 #[derive(Debug, Serialize, Deserialize)]
 struct GlobalState {
     global_orderbook_state: GlobalOrderBookState,
@@ -64,6 +66,7 @@ fn load_state(
     log_file: fs::File,
     order_counter: &web::Data<Arc<AtomicUsize>>,
     relay_server_addr: &web::Data<actix::Addr<crate::connection_server::Server>>,
+    start_time: &web::Data<SystemTime>
 ) -> Option<GlobalState> {
     // todo: convert to Result<> instead of Option<>
     // search from bottom up until we find a state dump, take that as ground truth
@@ -99,6 +102,7 @@ fn load_state(
                                 &gs.global_account_state,
                                 relay_server_addr,
                                 order_counter,
+                                start_time
                             );
                         }
                         api_messages::IncomingMessage::CancelRequest(cancel_request) => {
@@ -114,6 +118,7 @@ fn load_state(
                         api_messages::IncomingMessage::AccountInfoRequest(account_info_request) => {
                             info!("Account info request found")
                         }
+                        _ => ()
                         
                     }
                 }

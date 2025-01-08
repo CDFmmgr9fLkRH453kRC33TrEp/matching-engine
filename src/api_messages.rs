@@ -18,7 +18,8 @@ use derive_more::Error;
 pub enum IncomingMessage {
     OrderRequest(OrderRequest),
     CancelRequest(CancelRequest),
-    AccountInfoRequest(AccountInfoRequest)
+    AccountInfoRequest(AccountInfoRequest),
+    GameStateRequest
 }
 #[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 #[serde(rename_all = "PascalCase")]

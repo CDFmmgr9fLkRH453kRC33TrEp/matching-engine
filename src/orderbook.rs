@@ -83,6 +83,7 @@ pub struct OrderBook {
     sell_side_limit_levels: LimitVec,
     current_high_buy_price: Price,
     current_low_sell_price: Price,
+    price_history: Vec<(u64, u16)>,
 
     // for benchmarking
     pub running_orders_total: usize,
@@ -268,6 +269,7 @@ fn add_order_to_book(
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
         order_counter: &web::Data<Arc<AtomicUsize>>,
         order_id: OrderID,
+        start_time: &web::Data<SystemTime>
     ) -> Result<Order, Box<dyn std::error::Error>> {
         match new_order_request.order_type {
             OrderType::Buy => self.handle_incoming_buy(
@@ -276,6 +278,7 @@ fn add_order_to_book(
                 relay_server_addr,
                 order_counter,
                 order_id,
+                start_time
             ),
             OrderType::Sell => self.handle_incoming_sell(
                 new_order_request,
@@ -283,6 +286,7 @@ fn add_order_to_book(
                 relay_server_addr,
                 order_counter,
                 order_id,
+                start_time
             ),
         }
     }
@@ -292,7 +296,8 @@ fn add_order_to_book(
         accounts_data: &crate::config::GlobalAccountState,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
         order_counter: &web::Data<Arc<AtomicUsize>>,
-        order_id: OrderID
+        order_id: OrderID,
+        start_time: &web::Data<SystemTime>
     ) -> Result<Order, Box<dyn std::error::Error>> {
         debug!(
             "Incoming sell, current high buy {:?}, current low sell {:?}",
@@ -342,6 +347,7 @@ fn add_order_to_book(
                         relay_server_addr,
                         buy_trader_order_id,
                         order_id,
+                        start_time
                     );
 
                     sell_order.amount -= amount_to_be_traded;
@@ -462,6 +468,7 @@ fn add_order_to_book(
         order_counter: &web::Data<Arc<AtomicUsize>>,
         // this should be folded into OrderRequest eventually
         order_id: OrderID,
+        start_time: &web::Data<SystemTime>
     ) -> Result<Order, Box<dyn std::error::Error>> {
         debug!(
             "Incoming Buy, current low sell {:?}, current high buy {:?}",
@@ -507,7 +514,8 @@ fn add_order_to_book(
                         }),
                         relay_server_addr,
                         order_id,
-                        self.sell_side_limit_levels.0[current_price_level].orders[0].order_id
+                        self.sell_side_limit_levels.0[current_price_level].orders[0].order_id,
+                        start_time
                     );
 
                     // TODO: create "sell" function that can handle calls to allocate credit etc.
@@ -611,17 +619,22 @@ fn add_order_to_book(
     }
 
     fn handle_fill_event(
-        &self,
+        &mut self,
         buy_trader: &Mutex<accounts::TraderAccount>,
         sell_trader: &Mutex<accounts::TraderAccount>,
         fill_event: Arc<Fill>,
         relay_server_addr: &web::Data<Addr<connection_server::Server>>,
         buy_trader_order_id: OrderID,
         sell_trader_order_id: OrderID,
+        start_time: &web::Data<SystemTime>,
     ) {
         // todo: this should acquire the lock for the the duration of the whole function (i.e. should take lock as argument instead of mutex)
 
         let cent_value = &fill_event.amount * &fill_event.price;
+        let time = start_time.elapsed().unwrap().as_secs();
+        
+        self.price_history.push((time, cent_value.try_into().unwrap()));
+
         if (buy_trader.lock().unwrap().trader_id != TraderId::Price_Enforcer){
             *buy_trader
                 .lock()
@@ -629,7 +642,7 @@ fn add_order_to_book(
                 .asset_balances
                 .index_ref(&fill_event.symbol)
                 .lock()
-                .unwrap() += fill_event.amount;
+                .unwrap() += <usize as TryInto<i64>>::try_into(fill_event.amount).unwrap();
             buy_trader.lock().unwrap().cents_balance -= cent_value;
         }
         // only cloning arc, so not slow!
@@ -650,7 +663,7 @@ fn add_order_to_book(
                 .asset_balances
                 .index_ref(&fill_event.symbol)
                 .lock()
-                .unwrap() -= fill_event.amount;
+                .unwrap() -= <usize as TryInto<i64>>::try_into(fill_event.amount).unwrap();
             sell_trader.lock().unwrap().cents_balance += cent_value;
             sell_trader.lock().unwrap().net_cents_balance += cent_value;
         }
@@ -779,6 +792,7 @@ pub fn quickstart_order_book(
         current_high_buy_price: min_price,
         current_low_sell_price: max_price,
         running_orders_total: 0,
+        price_history: Vec::new(),
     }
 }
 
